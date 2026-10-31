@@ -8,10 +8,16 @@ using Pelada.Api;
 
 if (args.Contains("--healthcheck"))
 {
-    try { using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) }; return (await client.GetAsync("http://localhost:8080/api/health")).IsSuccessStatusCode ? 0 : 1; }
+    try { var healthPort=Environment.GetEnvironmentVariable("PORT") ?? "8080"; using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) }; return (await client.GetAsync($"http://localhost:{healthPort}/api/health")).IsSuccessStatusCode ? 0 : 1; }
     catch { return 1; }
 }
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Configuration["PORT"] is string railwayPort)
+{
+    if (!int.TryParse(railwayPort,out var port) || port is <1 or >65535)
+        throw new InvalidOperationException("PORT deve ser uma porta válida.");
+    builder.WebHost.ConfigureKestrel(options=>options.ListenAnyIP(port));
+}
 var connection = builder.Configuration.GetConnectionString("Postgres") ?? throw new InvalidOperationException("Configure ConnectionStrings__Postgres.");
 var origin = builder.Configuration["APP_ORIGIN"]?.TrimEnd('/') ?? "http://localhost:4200";
 if (!Uri.TryCreate(origin, UriKind.Absolute, out var publicUri) || (!builder.Environment.IsDevelopment() && publicUri.Scheme != "https"))

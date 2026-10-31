@@ -2,7 +2,7 @@
 
 Gerenciador de pelada para web e celular, com vários organizadores compartilhando os jogadores, sorteios, resultados e ranking. Instalável como PWA, sem lojas de aplicativos.
 
-O controle privado de [mensalidades](docs/mensalidades.md) registra R$ 10,00 por jogador a cada mês, com pagamentos, pendências e histórico.
+O controle de [mensalidades](docs/mensalidades.md), com consulta pública e alterações restritas aos organizadores, registra R$ 10,00 por jogador a cada mês, com pagamentos, pendências e histórico.
 
 ## Stack
 
@@ -16,6 +16,10 @@ Para usar o bucket privado `alugueis-pelada` em `sa-east-1`, veja [S3 e User Sec
 | Dados | PostgreSQL 17, Entity Framework Core 10 e Npgsql |
 | Execução | Docker e Docker Compose, Nginx como servidor da interface e proxy da API |
 | Testes | xUnit e integração com PostgreSQL real; Vitest no Angular |
+
+## Publicar no Railway e na Vercel
+
+Veja o [guia de deploy](docs/deploy-railway-vercel.md) para configurar a API e o PostgreSQL no Railway, o frontend na Vercel, S3 e a migração do banco atual.
 
 ## Subir com Docker Compose
 

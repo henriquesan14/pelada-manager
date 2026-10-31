@@ -15,3 +15,5 @@ keys
 **/*.dump
 **/secrets.json
 **/TestResults
+
+**/.vercel

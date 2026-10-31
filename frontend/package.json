@@ -5,7 +5,8 @@
   "scripts": {
     "start": "ng serve --host 0.0.0.0",
     "build": "ng build",
-    "test": "ng test --watch=false"
+    "test": "ng test --watch=false",
+    "build:vercel": "ng build && node scripts/build-vercel.mjs"
   },
   "dependencies": {
     "@angular/common": "21.2.25",
