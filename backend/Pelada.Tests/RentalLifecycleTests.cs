@@ -56,12 +56,14 @@ public sealed class RentalLifecycleTests
         Assert.Throws<ApiError>(()=>Act(state,new(){Type="generateDrawOptions",Players=["p1","p2"],Count=3}));
     }
     [Fact]
-    public void GoalkeepersStayOutOfDrawAndWinnerMustBeARealGoalkeeper()
+    public void SelectedGoalkeepersCanPlayInTheDrawAndWinnerMustExist()
     {
         var state=State();state.Players.Add(new("g1","TARCIO (GL)",5));state.Players.Add(new("g2","Veto (gl) ",4));
         var selected=state.Players.Select(p=>p.Id).ToList();
         Act(state,new(){Type="generateDrawOptions",Players=selected,Count=3});
-        Assert.All(state.DrawOptions.SelectMany(o=>o.Teams),t=>Assert.All(t.Players,id=>Assert.DoesNotContain(id,new[]{"g1","g2"})));
+        Assert.All(state.DrawOptions,o=>Assert.Equal(selected.OrderBy(id=>id),o.Teams.SelectMany(t=>t.Players).OrderBy(id=>id)));
+        Act(state,new(){Type="generateDrawOptions",Players=selected.Where(id=>id!="g2").ToList(),Count=3});
+        Assert.All(state.DrawOptions,o=>{Assert.Contains("g1",o.Teams.SelectMany(t=>t.Players));Assert.DoesNotContain("g2",o.Teams.SelectMany(t=>t.Players));});
         Act(state,new(){Type="selectDrawOption",Id=state.DrawOptions[0].Id});
         var id=Start(state);var winner=state.Rentals[0].Teams[0].Id;
         Assert.Throws<ApiError>(()=>Act(state,new(){Type="finishRental",RentalId=id,WinnerTeamId=winner}));

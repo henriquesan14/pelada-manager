@@ -3,7 +3,7 @@ import { AppComponent } from './app.component';
 
 export const routes: Routes = [
   {path: '', redirectTo: 'inicio', pathMatch: 'full'},
-  ...['inicio','jogadores','sorteio','alugueis','ranking','organizadores','regras'].map(path => ({path, component: AppComponent})),
+  ...['inicio','jogadores','sorteio','alugueis','ranking','organizadores','regras','mensalidades','financeiro'].map(path => ({path, component: AppComponent})),
   {path: 'partidas', redirectTo: 'alugueis', pathMatch: 'full'},
   {path: '**', redirectTo: 'inicio'}
 ];

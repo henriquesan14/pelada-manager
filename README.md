@@ -2,6 +2,8 @@
 
 Gerenciador de pelada para web e celular, com vários organizadores compartilhando os jogadores, sorteios, resultados e ranking. Instalável como PWA, sem lojas de aplicativos.
 
+O controle privado de [mensalidades](docs/mensalidades.md) registra R$ 10,00 por jogador a cada mês, com pagamentos, pendências e histórico.
+
 ## Stack
 
 Para usar o bucket privado `alugueis-pelada` em `sa-east-1`, veja [S3 e User Secrets da API](docs/s3.md). A configuração Docker para ler `secrets.json` está em `compose.secrets.yaml`.

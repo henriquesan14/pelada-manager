@@ -203,6 +203,25 @@ public sealed class IntegrationTests
         Assert.False(objects.Objects.ContainsKey(deleteKey));
         Assert.Equal(HttpStatusCode.NotFound,(await Request($"rentals/{rentalId}/photo",cookie:ownerCookie)).StatusCode);
         await using(var scope=factory.Services.CreateAsyncScope())Assert.Empty(await scope.ServiceProvider.GetRequiredService<PeladaDb>().RentalPhotos.ToListAsync());
+        Assert.Equal(HttpStatusCode.Unauthorized,(await Request("actions",new{type="openMonthlyFees",month="2026-10",revision=12})).StatusCode);
+        var fees=await Request("actions",new{type="openMonthlyFees",month="2026-10",revision=12},ownerCookie);
+        Assert.Equal(HttpStatusCode.OK,fees.StatusCode);
+        var feeMonth=(await Json(fees))["state"]!["monthlyFees"]![0]!;
+        Assert.Equal(10m,feeMonth["amount"]!.GetValue<decimal>());Assert.Equal(2,feeMonth["charges"]!.AsArray().Count);
+        Assert.Equal(HttpStatusCode.OK,(await Request("actions",new{type="setMonthlyFeePayment",month="2026-10",id=ids[0],paid=true,revision=13},ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await Request("actions",new{type="setMonthlyFeePayment",month="2026-10",id=ids[0],paid=false,revision=14})).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await Request("actions",new{type="addExpense",expenseDate="2026-10-31",amount=5,description="Bola",revision=14})).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,(await Request("actions",new{type="addExpense",expenseDate="2026-10-31",amount=5,description="Bola",revision=14},ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await Request("actions",new{type="addIncome",incomeDate="2026-10-31",amount=25,description="Doação",revision=15})).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,(await Request("actions",new{type="addIncome",incomeDate="2026-10-31",amount=25,description="Doação",revision=15},ownerCookie)).StatusCode);
+        var publicFinance=(await Json(await Request("public/state")))["state"]!;
+        Assert.Equal(25m,publicFinance["incomes"]![0]!["amount"]!.GetValue<decimal>());
+        var publicCharge=publicFinance["monthlyFees"]![0]!["charges"]![0]!;
+        Assert.True(publicCharge["importedPaid"]!.GetValue<bool>());
+        Assert.False(publicCharge.AsObject().ContainsKey("recordedBy"));Assert.False(publicCharge.AsObject().ContainsKey("recordedByName"));
+        Assert.False(publicCharge.AsObject().ContainsKey("importSourceCell"));Assert.False(publicCharge.AsObject().ContainsKey("paidAt"));
+        Assert.Equal(5m,publicFinance["expenses"]![0]!["amount"]!.GetValue<decimal>());
+        Assert.False(publicFinance["expenses"]![0]!.AsObject().ContainsKey("importSourceCell"));
         var expiredInvite = (await Json(await Request("invites", new { }, ownerCookie)))["invite"]!.GetValue<string>();
         await using (var scope = factory.Services.CreateAsyncScope())
         {

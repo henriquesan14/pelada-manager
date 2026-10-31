@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Player, ranking, Rental } from './models';
+import { isPlayerSuspended, remainingSuspensionRentals, Player, ranking, Rental } from './models';
 
 const players:Player[]=[{id:'p1',name:'Ana',level:3},{id:'p2',name:'Beto',level:3},{id:'p3',name:'Caio',level:3}];
 const rental:Rental={id:'r1',name:'Sábado',createdAt:'2026-10-30T12:00:00Z',teams:[
@@ -42,5 +42,18 @@ describe('ranking geral por títulos de aluguel',()=>{
     expect(ranking([...players,keeper],[{...result,teams:[{...result.teams[0],players:['p1','g']}]}]).find(p=>p.id==='g')?.titles).toBe(1);
     expect(ranking([...players,keeper],[{...result,winnerTeamId:null}]).find(p=>p.id==='g')?.titles).toBe(0);
     expect(ranking([...players,keeper],[{...result,finishedAt:null}]).find(p=>p.id==='g')?.titles).toBe(0);
+  });
+});
+
+describe('suspensões',()=>{
+  it('usa a data final inclusive e ignora peladas anteriores, canceladas e históricas na contagem',()=>{
+    const player:Player={...players[0],suspension:{startedAt:'2026-10-01T00:00:00Z',until:'2026-10-31'}};
+    expect(isPlayerSuspended(player,[],'2026-10-31')).toBe(true);
+    expect(isPlayerSuspended(player,[],'2026-11-01')).toBe(false);
+    player.suspension={startedAt:'2026-10-01T00:00:00Z',rentalCount:2};
+    const records=[{...rental,createdAt:'2026-09-01T00:00:00Z'},{...rental,cancelledAt:'2026-10-31T00:00:00Z'},{...rental,isHistorical:true},rental];
+    expect(remainingSuspensionRentals(player,records)).toBe(1);
+    expect(isPlayerSuspended(player,records)).toBe(true);
+    expect(isPlayerSuspended(player,[...records,{...rental,id:'r2'}])).toBe(false);
   });
 });

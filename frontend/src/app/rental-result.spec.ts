@@ -41,12 +41,12 @@ describe('resultado da pelada sem partidas',()=>{
     expect(api.action).toHaveBeenCalledWith({type:'finishRental',rentalId:'r1',winnerTeamId:'a',noWinner:false,winningGoalkeeperId:'p1',revision:1});
     fixture.destroy();
   });
-  it('não oferece goleiro no sorteio e exige selecionar o goleiro do aluguel',async()=>{
+  it('oferece goleiro no sorteio e exige selecionar o goleiro do aluguel',async()=>{
     const{fixture,api}=await setup(true);const app=fixture.componentInstance;
     const keeper={id:'g1',name:'TARCIO (GL)',level:5};
     app.snapshot.set({revision:1,state:{...app.state(),players:[...app.state().players,keeper]}});
     app.page.set('sorteio');fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.selection').textContent).not.toContain('TARCIO');
+    expect(fixture.nativeElement.querySelector('.selection').textContent).toContain('TARCIO');
     app.page.set('partidas');app.winnerSelection='a';fixture.detectChanges();
     const input=fixture.nativeElement.querySelector('app-player-autocomplete input') as HTMLInputElement;input.dispatchEvent(new Event('focus'));fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role="listbox"]').textContent).toContain('TARCIO');

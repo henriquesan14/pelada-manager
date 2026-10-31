@@ -2,7 +2,7 @@ import { Page } from './models';
 
 export const PAGE_PATHS: Record<Page, string> = {
   inicio: '/inicio', jogadores: '/jogadores', sorteio: '/sorteio',
-  partidas: '/alugueis', ranking: '/ranking', organizadores: '/organizadores', regras: '/regras'
+  partidas: '/alugueis', ranking: '/ranking', organizadores: '/organizadores', regras: '/regras', mensalidades: '/mensalidades', financeiro: '/financeiro'
 };
 export function pageFromUrl(url: string): Page {
   const path = url.split(/[?#]/)[0];

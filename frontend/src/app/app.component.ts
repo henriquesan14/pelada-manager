@@ -1,3 +1,7 @@
+import { PlayerSuspensionDialogComponent, SuspensionChange } from './player-suspension-dialog.component';
+import { PlayerFeesDialogComponent } from './player-fees-dialog.component';
+import { CashFlowComponent, NewExpense, NewIncome } from './cash-flow.component';
+import { FeePaymentChange, MonthlyFeesComponent } from './monthly-fees.component';
 import { GroupRulesComponent } from './group-rules.component';
 import { PlayerAutocompleteComponent } from './player-autocomplete.component';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
@@ -8,11 +12,11 @@ import { SwUpdate } from '@angular/service-worker';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { PAGE_PATHS, pageFromUrl } from './navigation';
 import { ApiService } from './api.service';
-import { Activity, emptyState, Invitation, isGoalkeeper, Organizer, Page, PeladaState, PLAYER_POSITIONS, ranking, Rental, Session, Snapshot, User } from './models';
+import { Activity, emptyState, Invitation, isGoalkeeper, isPlayerSuspended, remainingSuspensionRentals, Player, Organizer, Page, PeladaState, PLAYER_POSITIONS, ranking, Rental, Session, Snapshot, User } from './models';
 import { RankingComponent } from './ranking.component';
 import { StarRatingComponent } from './star-rating.component';
 
-@Component({ selector: 'app-pelada', imports: [FormsModule, DatePipe, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'app-pelada', imports: [FormsModule, DatePipe, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
   private readonly destroy = inject(DestroyRef);
@@ -27,12 +31,17 @@ export class AppComponent {
   readonly busy = signal(false);
   readonly connected = signal(false);
   readonly page = signal<Page>(pageFromUrl(this.router.url));
-  readonly isPublicPage = computed(()=>this.page()==='ranking'||this.page()==='partidas'||this.page()==='regras');
-  readonly visibleLinks = computed(()=>this.user()?this.links:this.links.filter(link=>link.page==='ranking'||link.page==='partidas'||link.page==='regras'));
+  readonly isPublicPage = computed(()=>this.page()==='ranking'||this.page()==='partidas'||this.page()==='regras'||this.page()==='mensalidades'||this.page()==='financeiro');
+  readonly visibleLinks = computed(()=>this.user()?this.links:this.links.filter(link=>link.page==='ranking'||link.page==='partidas'||link.page==='regras'||link.page==='mensalidades'||link.page==='financeiro'));
   readonly snapshot = signal<Snapshot>({ revision: -1, state: emptyState() });
   readonly state = computed(() => this.snapshot().state);
   readonly sortedPlayers = computed(() => [...this.state().players].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name, 'pt-BR')));
-  readonly fieldPlayers = computed(() => this.sortedPlayers().filter(p=>!isGoalkeeper(p)));
+  readonly playerSearch=signal('');
+  readonly filteredPlayers=computed(()=>{
+    const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+    const term=normalize(this.playerSearch().trim());
+    return this.sortedPlayers().filter(player=>normalize(player.name).includes(term));
+  });
   readonly goalkeepers = computed(() => this.sortedPlayers().filter(isGoalkeeper));
   readonly standings = computed(() => ranking(this.state().players, this.state().rentals));
   readonly activeRental = computed(() => this.state().rentals.find(r => !r.finishedAt) || null);
@@ -45,6 +54,18 @@ export class AppComponent {
   readonly selectedPhoto = signal<File|null>(null);
   readonly photoPreview = signal<string|null>(null);
   readonly currentPhotoUrl = computed(() => this.photoPreview() || (this.currentRental()?.photoId ? `/api/rentals/${this.currentRental()!.id}/photo?v=${this.snapshot().revision}` : null));
+  readonly suspensionPlayerId=signal('');
+  readonly suspensionPlayer=computed(()=>this.state().players.find(p=>p.id===this.suspensionPlayerId()));
+  suspended(player:Player):boolean {return isPlayerSuspended(player,this.state().rentals);}
+  suspensionLabel(player:Player):string {
+    if(!this.suspended(player))return '';
+    return player.suspension?.until ? `Suspenso até ${player.suspension.until.split('-').reverse().join('/')}` : `Suspenso: ${remainingSuspensionRentals(player,this.state().rentals)} pelada(s) restante(s)`;
+  }
+  async suspendPlayer(change:SuspensionChange):Promise<void> {if(await this.perform({type:'suspendPlayer',...change},'Suspensão registrada.'))this.suspensionPlayerId.set('');}
+  async clearPlayerSuspension(id:string):Promise<void> {await this.perform({type:'clearPlayerSuspension',id},'Suspensão retirada.');}
+  readonly feeDialogPlayerId=signal('');
+  readonly feeDialogPlayer=computed(()=>this.state().players.find(p=>p.id===this.feeDialogPlayerId()));
+  viewPlayerFees(id:string):void {this.feeDialogPlayerId.set(id);}
   readonly selected = signal<string[]>([]);
   readonly organizers = signal<Organizer[]>([]);
   readonly activity = signal<Activity[]>([]);
@@ -53,11 +74,11 @@ export class AppComponent {
   readonly authError = signal('');
   readonly authMode = signal<'login' | 'register' | 'setup'>('login');
   readonly legacy = signal<PeladaState | null>(null);
-  readonly canImport = computed(() => this.user()?.role === 'owner' && !this.state().players.length && !this.state().matches.length && !this.state().teams.length && !this.state().rentals.length);
+  readonly canImport = computed(() => this.user()?.role === 'owner' && !this.state().players.length && !this.state().matches.length && !this.state().teams.length && !this.state().rentals.length && !this.state().monthlyFees?.length && !this.state().expenses?.length && !this.state().incomes?.length);
   readonly links: {page: Page; icon: string; label: string}[] = [
     {page:'inicio',icon:'◫',label:'Visão geral'}, {page:'jogadores',icon:'♙',label:'Jogadores'},
     {page:'sorteio',icon:'⇄',label:'Sortear times'}, {page:'partidas',icon:'⚑',label:'Aluguéis'},
-    {page:'ranking',icon:'♜',label:'Ranking'}, {page:'regras',icon:'☷',label:'Regras'}, {page:'organizadores',icon:'♧',label:'Organizadores'}
+    {page:'ranking',icon:'♜',label:'Ranking'}, {page:'regras',icon:'☷',label:'Regras'}, {page:'mensalidades',icon:'＄',label:'Mensalidades'}, {page:'financeiro',icon:'⇅',label:'Entradas e saídas'}, {page:'organizadores',icon:'♧',label:'Organizadores'}
   ];
   auth = { name: '', nick: '', password: '', setupToken: '', invite: '' };
   playerName = '';
@@ -124,7 +145,7 @@ export class AppComponent {
     const previousRentalId=this.currentRental()?.id;
     next.state.rentals ??= [];
     const current = this.selected().filter(id => next.state.players.some(p => p.id === id));
-    this.snapshot.set(next); this.selected.set(current); this.connected.set(true);
+    this.snapshot.set(next); this.selected.set(current.filter(id=>!this.suspended(next.state.players.find(p=>p.id===id)!))); this.connected.set(true);
     if(previousRentalId!==this.currentRental()?.id){this.clearPhoto();this.winnerSelection='';this.goalkeeperSelection='';}
   }
   async bootstrap(): Promise<void> {
@@ -181,12 +202,12 @@ export class AppComponent {
   async updateLevel(id: string, value: number): Promise<void> { await this.perform({type:'updateLevel',id,level:Number(value)}, 'Nível atualizado.'); }
   async updatePosition(id: string, position: string): Promise<void> { await this.perform({type:'updatePosition',id,position}, 'Posição atualizada.'); }
   async removePlayer(id: string): Promise<void> { if (confirm('Excluir este jogador? O histórico dos outros jogadores será mantido.')) await this.perform({type:'removePlayer',id}, 'Jogador excluído.'); }
-  select(id: string, checked: boolean): void { this.selected.update(ids => checked ? [...ids, id] : ids.filter(p => p !== id)); }
+  select(id: string, checked: boolean): void { this.selected.update(ids => checked && !this.sortedPlayers().some(p=>p.id===id&&this.suspended(p)) ? [...ids, id] : ids.filter(p => p !== id)); }
   async draw(): Promise<void> {
     if(this.busy())return;
     if(![3,4].includes(Number(this.teamCount))){this.toast('Escolha 3 ou 4 times.');return;}
     if(this.state().drawOptions?.length&&!confirm('Gerar três novas opções? As opções atuais e a escolha da enquete serão substituídas.'))return;
-    await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.fieldPlayers().some(p=>p.id===id)),count:Number(this.teamCount)}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.');
+    await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.sortedPlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount)}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.');
   }
   async chooseDrawOption(id: string): Promise<void> {
     await this.perform({type:'selectDrawOption',id}, 'Sorteio vencedor escolhido. Agora cadastre a pelada.');
@@ -227,6 +248,19 @@ export class AppComponent {
     if(!this.selectedPhoto()&&!rental.photoId){this.toast('Adicione a foto do aluguel.');return;}
     if(this.selectedPhoto()&&!await this.savePhoto())return;
     await this.perform({type:'finishRental',rentalId:rental.id,winnerTeamId:this.winnerSelection==='none'?null:this.winnerSelection,noWinner:this.winnerSelection==='none',winningGoalkeeperId:this.winnerSelection==='none'?null:this.goalkeeperSelection||null},this.winnerSelection==='none'?'Resultado salvo sem vencedor. Ninguém conquista aluguel.':'Resultado salvo. Jogadores do time vencedor conquistam 1 aluguel.');
+  }
+  async addIncome(income:NewIncome,component:CashFlowComponent):Promise<void> {
+    if(await this.perform({type:'addIncome',...income},'Entrada registrada.'))component.incomeSaved();
+  }
+  async addExpense(expense:NewExpense,component:CashFlowComponent):Promise<void> {
+    if(await this.perform({type:'addExpense',...expense},'Gasto registrado.'))component.expenseSaved();
+  }
+  async openMonthlyFees(month:string): Promise<void> {
+    await this.perform({type:'openMonthlyFees',month},'Mensalidades abertas: R$ 10,00 por jogador.');
+  }
+  async setMonthlyFeePayment(change:FeePaymentChange): Promise<void> {
+    if(!change.paid&&!confirm(`Desfazer o pagamento de ${change.playerName} em ${change.month}? A mensalidade voltará a ficar pendente.`))return;
+    await this.perform({type:'setMonthlyFeePayment',month:change.month,id:change.playerId,paid:change.paid},change.paid?'Pagamento registrado.':'Pagamento desfeito.');
   }
   async deleteRental(): Promise<void> {
     const rental=this.currentRental();if(!rental||this.busy())return;

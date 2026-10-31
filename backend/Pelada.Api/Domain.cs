@@ -12,9 +12,16 @@ public sealed class ApiError(int status, string message) : Exception(message)
     }
 }
 
-public sealed record Player(string Id, string Name, decimal Level, string? Position = null, int InitialRentals = 0);
+public sealed record PlayerSuspension(DateTimeOffset StartedAt, DateOnly? Until = null, int? RentalCount = null);
+public sealed record Player(string Id, string Name, decimal Level, string? Position = null, int InitialRentals = 0, PlayerSuspension? Suspension = null);
 public sealed record Team(string Id, string Name, List<string> Players, decimal Strength);
 public sealed record DrawOption(string Id, int Number, List<Team> Teams);
+public sealed record MonthlyFeeCharge(string PlayerId, string PlayerName, DateTimeOffset? PaidAt = null,
+    string? RecordedBy = null, string? RecordedByName = null, bool ImportedPaid = false,
+    string? ImportSourceCell = null, DateTimeOffset? ImportedAt = null);
+public sealed record CashIncome(string Id, DateOnly Date, decimal Amount, string Description);
+public sealed record CashExpense(string Id, DateOnly Date, decimal Amount, string Description, string? ImportSourceCell = null);
+public sealed record MonthlyFeeMonth(string Month, decimal Amount, List<MonthlyFeeCharge> Charges);
 public sealed record Match(string Id, DateTimeOffset Date, List<string> A, List<string> B,
     string NameA, string NameB, int ScoreA, int ScoreB, string? CreatedBy, string CreatedByName,
     string? RentalId = null, string? TeamAId = null, string? TeamBId = null);
@@ -29,6 +36,9 @@ public sealed class PeladaState
     public List<Match> Matches { get; set; } = [];
     public List<Rental> Rentals { get; set; } = [];
     public List<DrawOption> DrawOptions { get; set; } = [];
+    public List<CashIncome> Incomes { get; set; } = [];
+    public List<CashExpense> Expenses { get; set; } = [];
+    public List<MonthlyFeeMonth> MonthlyFees { get; set; } = [];
     public string? SelectedDrawOptionId { get; set; }
 }
 public sealed class ActionRequest
@@ -45,6 +55,14 @@ public sealed class ActionRequest
     public bool NoWinner { get; set; }
     public DateOnly? PlayedOn { get; set; }
     public string? Location { get; set; }
+    public string? Month { get; set; }
+    public bool? Paid { get; set; }
+    public DateOnly? SuspensionUntil { get; set; }
+    public int? SuspensionRentals { get; set; }
+    public DateOnly? IncomeDate { get; set; }
+    public DateOnly? ExpenseDate { get; set; }
+    public decimal Amount { get; set; }
+    public string? Description { get; set; }
     public List<string>? Players { get; set; }
     public int Count { get; set; }
     public string? A { get; set; }
@@ -57,6 +75,17 @@ public sealed class ActionRequest
 public static partial class PeladaRules
 {
     public static bool IsGoalkeeper(Player player) => player.Name.TrimEnd().EndsWith("(GL)", StringComparison.OrdinalIgnoreCase) || player.Position == "Goleiro";
+    public static int RemainingSuspensionRentals(Player player, PeladaState state) => player.Suspension?.RentalCount is int count
+        ? Math.Max(0,count-state.Rentals.Count(r=>!r.IsHistorical && r.CancelledAt is null && r.CreatedAt>=player.Suspension.StartedAt)) : 0;
+    public static bool IsSuspended(Player player, PeladaState state, DateOnly? date = null)
+    {
+        var suspension=player.Suspension;if(suspension is null)return false;
+        var today=DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow,"America/Sao_Paulo").DateTime);
+        return suspension.Until is DateOnly until ? (date??today)<=until : RemainingSuspensionRentals(player,state)>0;
+    }
+    private static bool ValidSuspension(PlayerSuspension? suspension) => suspension is null ||
+        (suspension.StartedAt!=default && ((suspension.Until is not null && suspension.Until!=DateOnly.MinValue && suspension.RentalCount is null) ||
+        (suspension.Until is null && suspension.RentalCount is >=1 and <=1000)));
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static string Id() => Guid.NewGuid().ToString();
     private static bool ValidName(string? name) => !string.IsNullOrWhiteSpace(name) && name.Trim().Length <= 50;
@@ -66,10 +95,13 @@ public static partial class PeladaRules
     [GeneratedRegex("^[a-zA-Z0-9_-]{1,100}$")]
     private static partial Regex IdPattern();
     private static bool ValidId(string? id) => id is not null && IdPattern().IsMatch(id);
+    private static bool ValidMonth(string? month) => month is {Length:7} && DateOnly.TryParseExact(month+"-01", "yyyy-MM-dd",
+        System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _);
+    private static string CurrentMonth() => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow,"America/Sao_Paulo")
+        .ToString("yyyy-MM",System.Globalization.CultureInfo.InvariantCulture);
 
     public static List<Team> Draw(IReadOnlyList<Player> players, int count, Random? random = null, bool vary = false)
     {
-        players = players.Where(p => !IsGoalkeeper(p)).ToList();
         ApiError.Require(count is >= 2 and <= 6 && players.Count >= count,
             "Selecione pelo menos um jogador por time (2 a 6 times).");
         random ??= Random.Shared;
@@ -95,8 +127,73 @@ public static partial class PeladaRules
                 ApiError.Require(ValidName(input.Name), "Informe um nome com até 50 caracteres.");
                 ApiError.Require(ValidLevel(input.Level), "Escolha de 0,5 a 5 estrelas, em passos de 0,5.");
                 ApiError.Require(ValidPosition(input.Position), "Escolha a posição do jogador.");
-                state.Players.Add(new Player(Id(), input.Name!.Trim(), input.Level, input.Position));
+                var addedPlayer = new Player(Id(), input.Name!.Trim(), input.Level, input.Position);
+                state.Players.Add(addedPlayer);
+                var currentMonth=CurrentMonth();
+                foreach(var fees in state.MonthlyFees.Where(f=>string.CompareOrdinal(f.Month,currentMonth)>=0))
+                    fees.Charges.Add(new MonthlyFeeCharge(addedPlayer.Id,addedPlayer.Name));
                 return $"Cadastrou {input.Name.Trim()}";
+            case "suspendPlayer":
+            {
+                var index=state.Players.FindIndex(p=>p.Id==input.Id);
+                ApiError.Require(index>=0,"Jogador não encontrado.",404);
+                var suspension=new PlayerSuspension(DateTimeOffset.UtcNow,input.SuspensionUntil,input.SuspensionRentals);
+                ApiError.Require(ValidSuspension(suspension),"Escolha uma data final ou uma quantidade de 1 a 1000 peladas.");
+                var today=DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow,"America/Sao_Paulo").DateTime);
+                ApiError.Require(suspension.Until is null || suspension.Until>=today,"A data final não pode estar no passado.");
+                state.Players[index]=state.Players[index] with{Suspension=suspension};
+                state.Teams=[];state.DrawOptions=[];state.SelectedDrawOptionId=null;
+                return $"Suspendeu {state.Players[index].Name}";
+            }
+            case "clearPlayerSuspension":
+            {
+                var index=state.Players.FindIndex(p=>p.Id==input.Id);
+                ApiError.Require(index>=0,"Jogador não encontrado.",404);
+                state.Players[index]=state.Players[index] with{Suspension=null};
+                return $"Retirou a suspensão de {state.Players[index].Name}";
+            }
+            case "addIncome":
+            {
+                ApiError.Require(input.IncomeDate is not null && input.IncomeDate != DateOnly.MinValue,"Informe a data da entrada.");
+                ApiError.Require(input.Amount > 0 && input.Amount <= 1000000 && decimal.Round(input.Amount,2)==input.Amount,"Informe um valor positivo com até duas casas decimais, de até R$ 1.000.000,00.");
+                ApiError.Require(!string.IsNullOrWhiteSpace(input.Description) && input.Description.Trim().Length<=500,"Informe a descrição da entrada com até 500 caracteres.");
+                ApiError.Require(state.Incomes.Count<10000,"Limite de entradas atingido.");
+                state.Incomes.Add(new CashIncome(Id(),input.IncomeDate!.Value,input.Amount,input.Description!.Trim()));
+                return $"Registrou entrada: {input.Description.Trim()}";
+            }
+            case "addExpense":
+            {
+                ApiError.Require(input.ExpenseDate is not null && input.ExpenseDate != DateOnly.MinValue,"Informe a data do gasto.");
+                ApiError.Require(input.Amount > 0 && input.Amount <= 1000000 && decimal.Round(input.Amount,2)==input.Amount,"Informe um valor positivo com até duas casas decimais, de até R$ 1.000.000,00.");
+                ApiError.Require(!string.IsNullOrWhiteSpace(input.Description) && input.Description.Trim().Length<=500,"Informe a descrição do gasto com até 500 caracteres.");
+                ApiError.Require(state.Expenses.Count<10000,"Limite de gastos atingido.");
+                state.Expenses.Add(new CashExpense(Id(),input.ExpenseDate!.Value,input.Amount,input.Description!.Trim()));
+                return $"Registrou gasto: {input.Description.Trim()}";
+            }
+            case "openMonthlyFees":
+            {
+                ApiError.Require(ValidMonth(input.Month),"Escolha o mês da mensalidade.");
+                ApiError.Require(!state.MonthlyFees.Any(f=>f.Month==input.Month),"As mensalidades deste mês já foram abertas.",409);
+                ApiError.Require(state.Players.Count>0,"Cadastre os jogadores antes de abrir as mensalidades.");
+                ApiError.Require(state.MonthlyFees.Count<240,"Limite de 240 meses atingido.");
+                state.MonthlyFees.Add(new MonthlyFeeMonth(input.Month!,10m,
+                    state.Players.Select(p=>new MonthlyFeeCharge(p.Id,p.Name)).ToList()));
+                return $"Abriu mensalidades de {input.Month}: R$ 10,00 por jogador";
+            }
+            case "setMonthlyFeePayment":
+            {
+                ApiError.Require(ValidMonth(input.Month) && input.Paid.HasValue,"Informe o mês e se o pagamento foi recebido.");
+                var fees=state.MonthlyFees.Find(f=>f.Month==input.Month);
+                ApiError.Require(fees is not null,"As mensalidades deste mês ainda não foram abertas.",404);
+                var index=fees!.Charges.FindIndex(c=>c.PlayerId==input.Id);
+                ApiError.Require(index>=0,"Cobrança do jogador não encontrada neste mês.",404);
+                var charge=fees.Charges[index];
+                ApiError.Require((charge.PaidAt is not null || charge.ImportedPaid)!=input.Paid!.Value,"O pagamento já está com esse status. Atualize a tela.",409);
+                fees.Charges[index]=input.Paid.Value ? charge with {PaidAt=DateTimeOffset.UtcNow,RecordedBy=actorId,RecordedByName=actorName,ImportedPaid=false}
+                    : charge with {PaidAt=null,RecordedBy=null,RecordedByName=null,ImportedPaid=false};
+                return input.Paid.Value ? $"Registrou R$ 10,00 de {charge.PlayerName} em {fees.Month}" :
+                    $"Desfez o registro de pagamento de {charge.PlayerName} em {fees.Month}";
+            }
             case "updateLevel":
             {
                 var index = state.Players.FindIndex(p => p.Id == input.Id);
@@ -131,6 +228,7 @@ public static partial class PeladaRules
                     "Seleção de jogadores inválida.");
                 ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id)), "Um jogador não está mais no elenco.");
                 var players = state.Players.Where(p => input.Players!.Contains(p.Id)).ToList();
+                ApiError.Require(players.All(p=>!IsSuspended(p,state)),"A seleção contém jogador suspenso. Atualize os presentes.");
                 var options = new List<DrawOption>();
                 var signatures = new HashSet<string>();
                 static string Signature(List<Team> teams) => string.Join("|", teams.Select(t => string.Join(",", t.Players.Order())).Order());
@@ -151,6 +249,7 @@ public static partial class PeladaRules
             {
                 var option = state.DrawOptions.Find(o => o.Id == input.Id);
                 ApiError.Require(option is not null, "Esta opção de sorteio não está mais disponível.", 409);
+                ApiError.Require(state.Players.Where(p=>option!.Teams.SelectMany(t=>t.Players).Contains(p.Id)).All(p=>!IsSuspended(p,state)),"Esta opção contém jogador suspenso. Gere um novo sorteio.");
                 state.SelectedDrawOptionId = option!.Id;
                 state.Teams = option.Teams.Select(t => t with { Players = [..t.Players] }).ToList();
                 return $"Escolheu o sorteio {option.Number} como vencedor da enquete";
@@ -160,6 +259,7 @@ public static partial class PeladaRules
                 ApiError.Require(input.Players is { Count: <= 500 } && input.Players.Distinct().Count() == input.Players.Count,
                     "Seleção de jogadores inválida.");
                 ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id)), "Um jogador não está mais no elenco.");
+                ApiError.Require(state.Players.Where(p=>input.Players!.Contains(p.Id)).All(p=>!IsSuspended(p,state)),"A seleção contém jogador suspenso.");
                 state.Teams = Draw(state.Players.Where(p => input.Players!.Contains(p.Id)).ToList(), input.Count);
                 state.DrawOptions = [];state.SelectedDrawOptionId = null;
                 return $"Sorteou {input.Count} times";
@@ -172,10 +272,9 @@ public static partial class PeladaRules
                 ApiError.Require(input.PlayedOn is not null && input.PlayedOn != DateOnly.MinValue, "Informe o dia da pelada.");
                 ApiError.Require(input.Location is null || input.Location.Trim().Length <= 120, "Informe um local com até 120 caracteres.");
                 ApiError.Require(state.Teams.Count >= 2, "Sorteie os times antes de iniciar o aluguel.");
-                ApiError.Require(!state.Teams.SelectMany(t => t.Players).Any(id => state.Players.Any(p => p.Id == id && IsGoalkeeper(p))),
-                    "Goleiros são sorteados na hora da pelada. Gere novas opções sem goleiros.");
                 ApiError.Require(state.DrawOptions.Count == 0 || state.DrawOptions.Any(o => o.Id == state.SelectedDrawOptionId),
                     "Escolha o sorteio vencedor da enquete antes de cadastrar a pelada.");
+                ApiError.Require(state.Players.Where(p=>state.Teams.SelectMany(t=>t.Players).Contains(p.Id)).All(p=>!IsSuspended(p,state,input.PlayedOn)),"Os times contêm jogador suspenso para a data da pelada. Faça outro sorteio.");
                 var teams = state.Teams.Select(t => t with { Players = [..t.Players] }).ToList();
                 state.Rentals.Add(new Rental(Id(), input.Name!.Trim(), DateTimeOffset.UtcNow, teams, PlayedOn: input.PlayedOn,
                     Location: string.IsNullOrWhiteSpace(input.Location) ? null : input.Location.Trim()));
@@ -235,11 +334,11 @@ public static partial class PeladaRules
             case "importLegacy":
             {
                 ApiError.Require(owner, "Apenas o responsável pode importar os dados iniciais.", 403);
-                ApiError.Require(state.Players.Count == 0 && state.Teams.Count == 0 && state.Matches.Count == 0 && state.Rentals.Count == 0,
+                ApiError.Require(state.Players.Count == 0 && state.Teams.Count == 0 && state.Matches.Count == 0 && state.Rentals.Count == 0 && state.MonthlyFees.Count == 0 && state.Expenses.Count == 0 && state.Incomes.Count == 0,
                     "A importação inicial exige uma pelada vazia.", 409);
                 var data = input.Data;
                 ApiError.Require(data?.Players is { Count: <= 500 } && data.Matches is { Count: <= 10000 }, "Arquivo inválido.");
-                ApiError.Require(data!.Players.All(p => p is not null && ValidId(p.Id) && ValidName(p.Name) && ValidLevel(p.Level) && p.InitialRentals is >= 0 and <= 100000 && (p.Position is null || ValidPosition(p.Position))) &&
+                ApiError.Require(data!.Players.All(p => p is not null && ValidId(p.Id) && ValidName(p.Name) && ValidLevel(p.Level) && p.InitialRentals is >= 0 and <= 100000 && ValidSuspension(p.Suspension) && (p.Position is null || ValidPosition(p.Position))) &&
                     data.Players.Select(p => p.Id).Distinct().Count() == data.Players.Count, "Jogadores inválidos ou duplicados.");
                 static bool Side(List<string>? ids) => ids is { Count: > 0 and <= 500 } && ids.All(ValidId) && ids.Distinct().Count() == ids.Count;
                 ApiError.Require(data.Matches.All(m => m is not null && ValidId(m.Id) && Side(m.A) && Side(m.B) &&
@@ -247,9 +346,27 @@ public static partial class PeladaRules
                     m.ScoreA is >= 0 and <= 999 && m.ScoreB is >= 0 and <= 999) &&
                     data.Matches.Select(m => m.Id).Distinct().Count() == data.Matches.Count, "Partidas inválidas ou duplicadas.");
                 ValidateRentals(data);
+                ApiError.Require(data.MonthlyFees is {Count:<=240} && data.MonthlyFees.All(f=>f is not null && ValidMonth(f.Month) && f.Amount==10m &&
+                    f.Charges is {Count:<=5000} && f.Charges.All(c=>c is not null && ValidId(c.PlayerId) && ValidName(c.PlayerName) &&
+                        (c.ImportedPaid ? c.PaidAt is null && c.ImportSourceCell is {Length:>0 and <=100} && c.ImportedAt is not null :
+                            c.PaidAt is null ? c.RecordedBy is null && c.RecordedByName is null : c.RecordedBy is not null && ValidName(c.RecordedByName))) &&
+                    f.Charges.Select(c=>c.PlayerId).Distinct().Count()==f.Charges.Count) &&
+                    data.MonthlyFees.Select(f=>f.Month).Distinct().Count()==data.MonthlyFees.Count,"Mensalidades inválidas no backup.");
                 state.Players = data.Players.Select(p => p with { Name = p.Name.Trim() }).ToList();
                 state.Matches = data.Matches.Select(m => m with { CreatedBy = actorId, CreatedByName = "Importação de backup" }).ToList();
                 state.Rentals = data.Rentals.Select(r => r with { PhotoId = null }).ToList();
+                ApiError.Require(data.Expenses is {Count:<=10000} && data.Expenses.All(e=>e is not null && ValidId(e.Id) &&
+                    e.Date != default && e.Amount > 0 && e.Amount <= 1000000 && decimal.Round(e.Amount,2)==e.Amount &&
+                    !string.IsNullOrWhiteSpace(e.Description) && e.Description.Length<=500 &&
+                    (e.ImportSourceCell is null || e.ImportSourceCell.Length<=100)) &&
+                    data.Expenses.Select(e=>e.Id).Distinct().Count()==data.Expenses.Count,"Gastos inválidos no backup.");
+                ApiError.Require(data.Incomes is {Count:<=10000} && data.Incomes.All(e=>e is not null && ValidId(e.Id) &&
+                    e.Date != default && e.Amount > 0 && e.Amount <= 1000000 && decimal.Round(e.Amount,2)==e.Amount &&
+                    !string.IsNullOrWhiteSpace(e.Description) && e.Description.Length<=500) &&
+                    data.Incomes.Select(e=>e.Id).Distinct().Count()==data.Incomes.Count,"Entradas inválidas no backup.");
+                state.MonthlyFees = data.MonthlyFees!;
+                state.Expenses = data.Expenses!;
+                state.Incomes = data.Incomes!;
                 return "Importou jogadores e resultados de um backup";
             }
             default: throw new ApiError(400, "Operação desconhecida.");
