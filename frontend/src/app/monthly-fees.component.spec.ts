@@ -20,7 +20,7 @@ describe('mensalidades de dez reais',()=>{
     fixture.componentRef.setInput('months',[ledger]);app.month.set('2026-10');fixture.detectChanges();
     expect(app.expected()).toBe(20);expect(app.received()).toBe(10);expect(app.paidCount()).toBe(1);
     const payment=vi.fn();app.payment.subscribe(payment);
-    const button=Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(b=>b.textContent==='Marcar como pago')!;
+    const button=Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(b=>b.getAttribute('aria-label')==='Marcar como pago: João (GL)')!;
     button.click();expect(payment).toHaveBeenCalledWith({month:'2026-10',playerId:'b',playerName:'João (GL)',paid:true});
     const updated={...ledger,charges:ledger.charges.map(c=>({...c,paidAt:'2026-10-10T12:00:00Z'}))};
     fixture.componentRef.setInput('months',[updated]);fixture.detectChanges();expect(app.received()).toBe(20);

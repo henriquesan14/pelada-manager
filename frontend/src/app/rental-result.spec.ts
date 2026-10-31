@@ -1,3 +1,4 @@
+import { DRAW_IMAGE_GENERATOR } from './draw-share-dialog.component';
 import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { SwUpdate } from '@angular/service-worker';
@@ -55,7 +56,8 @@ describe('resultado da pelada sem partidas',()=>{
     expect(api.action).toHaveBeenCalledWith({type:'finishRental',rentalId:'r1',winnerTeamId:'a',noWinner:false,winningGoalkeeperId:'g1',revision:1});
     fixture.destroy();
   });
-  it('mostra três opções, prepara o texto do WhatsApp e salva a escolha manual',async()=>{
+  it('mostra imagens para compartilhar e salva a escolha manual',async()=>{
+    const render=vi.fn();TestBed.overrideProvider(DRAW_IMAGE_GENERATOR,{useValue:render});
     const{fixture,api}=await setup();const app=fixture.componentInstance;
     const teams=app.currentRental()!.teams;
     const options=[1,2,3].map(number=>({id:`option-${number}`,number,teams}));
@@ -64,9 +66,17 @@ describe('resultado da pelada sem partidas',()=>{
     const root=fixture.nativeElement as HTMLElement;
     expect(root.querySelectorAll('.draw-option').length).toBe(3);
     expect(root.querySelector('input[name="rentalDate"]')).toBeNull();
-    const link=root.querySelector('a[target="_blank"]') as HTMLAnchorElement;
-    const text=new URL(link.href).searchParams.get('text')!;
-    expect(text).toContain('*Sorteio 1*');expect(text).toContain('*Sorteio 3*');expect(text).toContain('Ana');
+    render.mockResolvedValue(options.map(option=>({number:option.number,file:new File(['png'],`sorteio-${option.number}.png`,{type:'image/png'}),url:'data:image/png;base64,iVBORw0KGgo='})));
+    const revoke=vi.fn();Object.defineProperty(URL,'revokeObjectURL',{configurable:true,value:revoke});
+    const share=vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator,'share',{configurable:true,value:share});Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});
+    (root.querySelector('.draw-poll button.primary') as HTMLButtonElement).click();fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();
+    expect(render).toHaveBeenCalledWith(options,app.state().players);
+    expect(root.querySelectorAll('app-draw-share-dialog img').length).toBe(3);
+    expect(root.querySelectorAll('app-draw-share-dialog a[download]').length).toBe(3);
+    (root.querySelector('app-draw-share-dialog button.primary') as HTMLButtonElement).click();await fixture.whenStable();
+    expect(share.mock.calls[0][0].files.length).toBe(3);expect(share.mock.calls[0][0].files[0].type).toBe('image/png');
+    app.showDrawShare.set(false);fixture.detectChanges();expect(revoke).toHaveBeenCalledTimes(3);render.mockReset();
     api.action.mockResolvedValue({revision:6,state:{...app.state(),selectedDrawOptionId:'option-2',teams}});
     await app.chooseDrawOption('option-2');fixture.detectChanges();
     expect(api.action).toHaveBeenCalledWith({type:'selectDrawOption',id:'option-2',revision:5});

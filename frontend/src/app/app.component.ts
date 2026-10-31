@@ -1,3 +1,4 @@
+import { DrawShareDialogComponent } from './draw-share-dialog.component';
 import { PlayerSuspensionDialogComponent, SuspensionChange } from './player-suspension-dialog.component';
 import { PlayerFeesDialogComponent } from './player-fees-dialog.component';
 import { CashFlowComponent, NewExpense, NewIncome } from './cash-flow.component';
@@ -16,7 +17,7 @@ import { Activity, emptyState, Invitation, isGoalkeeper, isPlayerSuspended, rema
 import { RankingComponent } from './ranking.component';
 import { StarRatingComponent } from './star-rating.component';
 
-@Component({ selector: 'app-pelada', imports: [FormsModule, DatePipe, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'app-pelada', imports: [FormsModule, DatePipe, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
   private readonly destroy = inject(DestroyRef);
@@ -24,6 +25,10 @@ export class AppComponent {
   private readonly router = inject(Router);
   readonly paths = PAGE_PATHS;
   readonly playerDialog = viewChild<ElementRef<HTMLDialogElement>>('playerDialog');
+  readonly mobileMenuDialog=viewChild<ElementRef<HTMLDialogElement>>('mobileMenuDialog');
+  readonly showMobileMenu=signal(false);
+  readonly mobilePrimaryPages=computed<Page[]>(()=>this.user()?['inicio','sorteio','partidas','ranking']:['ranking','partidas','mensalidades','financeiro']);
+  readonly mobileExtraLinks=computed(()=>this.visibleLinks().filter(link=>!this.mobilePrimaryPages().includes(link.page)));
   readonly rentalDialog = viewChild<ElementRef<HTMLDialogElement>>('rentalDialog');
   readonly user = signal<User | null>(null);
   readonly session = signal<Session | null>(null);
@@ -35,7 +40,7 @@ export class AppComponent {
   readonly visibleLinks = computed(()=>this.user()?this.links:this.links.filter(link=>link.page==='ranking'||link.page==='partidas'||link.page==='regras'||link.page==='mensalidades'||link.page==='financeiro'));
   readonly snapshot = signal<Snapshot>({ revision: -1, state: emptyState() });
   readonly state = computed(() => this.snapshot().state);
-  readonly sortedPlayers = computed(() => [...this.state().players].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name, 'pt-BR')));
+  readonly sortedPlayers = computed(() => [...this.state().players].sort((a, b) => Number(/\(GL\)$/i.test(a.name.trim())) - Number(/\(GL\)$/i.test(b.name.trim())) || b.level - a.level || a.name.localeCompare(b.name, 'pt-BR')));
   readonly playerSearch=signal('');
   readonly filteredPlayers=computed(()=>{
     const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
@@ -54,6 +59,7 @@ export class AppComponent {
   readonly selectedPhoto = signal<File|null>(null);
   readonly photoPreview = signal<string|null>(null);
   readonly currentPhotoUrl = computed(() => this.photoPreview() || (this.currentRental()?.photoId ? `/api/rentals/${this.currentRental()!.id}/photo?v=${this.snapshot().revision}` : null));
+  readonly showDrawShare=signal(false);
   readonly suspensionPlayerId=signal('');
   readonly suspensionPlayer=computed(()=>this.state().players.find(p=>p.id===this.suspensionPlayerId()));
   suspended(player:Player):boolean {return isPlayerSuspended(player,this.state().rentals);}
@@ -95,6 +101,11 @@ export class AppComponent {
 
   constructor() {
     effect(onCleanup=>{
+      const dialog=this.mobileMenuDialog()?.nativeElement;if(!dialog||!this.showMobileMenu())return;
+      const overflow=document.body.style.overflow;document.body.style.overflow='hidden';dialog.showModal();
+      onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});
+    });
+    effect(onCleanup=>{
       const dialog=this.rentalDialog()?.nativeElement;
       if(!dialog||!this.selectedRentalId()||this.page()!=='partidas')return;
       const overflow=document.body.style.overflow;
@@ -104,7 +115,7 @@ export class AppComponent {
       onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});
     });
     const navigation = this.router.events.subscribe(event => {
-      if(event instanceof NavigationEnd){this.page.set(pageFromUrl(event.urlAfterRedirects));if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
+      if(event instanceof NavigationEnd){this.showMobileMenu.set(false);this.page.set(pageFromUrl(event.urlAfterRedirects));if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
     });
     this.destroy.onDestroy(()=>navigation.unsubscribe());
     this.auth.invite = new URLSearchParams(location.hash.slice(1)).get('convite') || '';
@@ -192,7 +203,7 @@ export class AppComponent {
       this.toast(this.errorMessage(error)); return false;
     } finally { this.busy.set(false); }
   }
-  go(page: Page): void { if (this.busy()) return; void this.router.navigateByUrl(PAGE_PATHS[page]); this.page.set(page); window.scrollTo(0, 0); if (page === 'organizadores') void this.loadOrganizers(); }
+  go(page: Page): void { if (this.busy()) return; void this.router.navigateByUrl(PAGE_PATHS[page]); this.page.set(page); if (page === 'organizadores') void this.loadOrganizers(); }
   openPlayer(): void { this.playerDialog()?.nativeElement.showModal(); }
   async addPlayer(): Promise<void> {
     if (await this.perform({type:'addPlayer',name:this.playerName.trim(),level:Number(this.playerLevel),position:this.playerPosition}, 'Jogador convocado!')) {
@@ -207,24 +218,11 @@ export class AppComponent {
     if(this.busy())return;
     if(![3,4].includes(Number(this.teamCount))){this.toast('Escolha 3 ou 4 times.');return;}
     if(this.state().drawOptions?.length&&!confirm('Gerar três novas opções? As opções atuais e a escolha da enquete serão substituídas.'))return;
-    await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.sortedPlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount)}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.');
+    if(await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.sortedPlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount)}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.'))
+      window.scrollTo({top:0,left:0,behavior:'smooth'});
   }
   async chooseDrawOption(id: string): Promise<void> {
     await this.perform({type:'selectDrawOption',id}, 'Sorteio vencedor escolhido. Agora cadastre a pelada.');
-  }
-  whatsappDrawText(): string {
-    const lines=['⚽ Enquete dos sorteios da pelada','Vote no grupo: Sorteio 1, Sorteio 2 ou Sorteio 3.',''];
-    for(const option of this.state().drawOptions || []){
-      lines.push(`*Sorteio ${option.number}*`);
-      for(const team of option.teams)lines.push(`${team.name}: ${team.players.map(id=>this.playerLabel(id)).join(', ')}`);
-      lines.push('');
-    }
-    lines.push('Crie a enquete no WhatsApp com as três opções.');return lines.join('\n');
-  }
-  whatsappDrawUrl(): string {return `https://wa.me/?text=${encodeURIComponent(this.whatsappDrawText())}`;}
-  async copyDrawOptions(): Promise<void> {
-    try{await navigator.clipboard.writeText(this.whatsappDrawText());this.toast('As três opções foram copiadas. Cole no grupo e crie a enquete.');}
-    catch{this.toast('Não foi possível copiar. Use Compartilhar no WhatsApp.');}
   }
   selectRental(id: string): void {
     this.selectedRentalId.set(id);this.clearPhoto();this.winnerSelection='';this.goalkeeperSelection='';
