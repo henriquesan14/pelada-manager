@@ -1,0 +1,10 @@
+# Use com compose.yaml para desenvolver o Angular localmente na porta 4200.
+services:
+  db:
+    ports:
+      - "127.0.0.1:5433:5432"
+  api:
+    ports:
+      - "127.0.0.1:5000:8080"
+    environment:
+      APP_ORIGIN: http://localhost:4200

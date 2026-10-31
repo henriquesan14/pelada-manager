@@ -1,0 +1,30 @@
+name: resenha-tests
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: resenha_test
+      POSTGRES_USER: resenha_test
+      POSTGRES_PASSWORD: synthetic-test-password
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resenha_test -d resenha_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: tests
+    environment:
+      TEST_POSTGRES: "1"
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=db;Database=resenha_test;Username=resenha_test;Password=synthetic-test-password
+      APP_ORIGIN: http://localhost:4200
+      SETUP_TOKEN: synthetic-integration-setup-token
+      DATA_PROTECTION_PATH: /tmp/resenha-test-keys
+    depends_on:
+      db:
+        condition: service_healthy

@@ -1,0 +1,1 @@
+{"name":"pelada-manager","version":"0.3.0","private":true,"scripts":{"dev":"npm --prefix frontend start","build":"npm --prefix frontend run build","test":"npm --prefix frontend test","test:api":"dotnet test backend/Pelada.Tests"}}

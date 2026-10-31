@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/Pelada.Api/Pelada.Api.csproj" />
+    <Project Path="backend/Pelada.Tests/Pelada.Tests.csproj" />
+  </Folder>
+</Solution>

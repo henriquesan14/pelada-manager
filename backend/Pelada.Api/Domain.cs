@@ -1,0 +1,293 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+
+namespace Pelada.Api;
+
+public sealed class ApiError(int status, string message) : Exception(message)
+{
+    public int Status { get; } = status;
+    public static void Require(bool valid, string message, int status = 400)
+    {
+        if (!valid) throw new ApiError(status, message);
+    }
+}
+
+public sealed record Player(string Id, string Name, decimal Level, string? Position = null, int InitialRentals = 0);
+public sealed record Team(string Id, string Name, List<string> Players, decimal Strength);
+public sealed record DrawOption(string Id, int Number, List<Team> Teams);
+public sealed record Match(string Id, DateTimeOffset Date, List<string> A, List<string> B,
+    string NameA, string NameB, int ScoreA, int ScoreB, string? CreatedBy, string CreatedByName,
+    string? RentalId = null, string? TeamAId = null, string? TeamBId = null);
+public sealed record Rental(string Id, string Name, DateTimeOffset CreatedAt, List<Team> Teams,
+    DateTimeOffset? FinishedAt = null, string? WinnerTeamId = null, string? PhotoId = null, DateOnly? PlayedOn = null,
+    DateTimeOffset? CancelledAt = null, string? Location = null, string? WinningGoalkeeperId = null,
+    bool IsHistorical = false, string? ParticipantsText = null, string? ImportSourceId = null, string? SourcePhotoUrl = null);
+public sealed class PeladaState
+{
+    public List<Player> Players { get; set; } = [];
+    public List<Team> Teams { get; set; } = [];
+    public List<Match> Matches { get; set; } = [];
+    public List<Rental> Rentals { get; set; } = [];
+    public List<DrawOption> DrawOptions { get; set; } = [];
+    public string? SelectedDrawOptionId { get; set; }
+}
+public sealed class ActionRequest
+{
+    public string Type { get; set; } = "";
+    public long Revision { get; set; } = -1;
+    public string? Id { get; set; }
+    public string? Name { get; set; }
+    public decimal Level { get; set; }
+    public string? Position { get; set; }
+    public string? RentalId { get; set; }
+    public string? WinnerTeamId { get; set; }
+    public string? WinningGoalkeeperId { get; set; }
+    public bool NoWinner { get; set; }
+    public DateOnly? PlayedOn { get; set; }
+    public string? Location { get; set; }
+    public List<string>? Players { get; set; }
+    public int Count { get; set; }
+    public string? A { get; set; }
+    public string? B { get; set; }
+    public int ScoreA { get; set; } = -1;
+    public int ScoreB { get; set; } = -1;
+    public PeladaState? Data { get; set; }
+}
+
+public static partial class PeladaRules
+{
+    public static bool IsGoalkeeper(Player player) => player.Name.TrimEnd().EndsWith("(GL)", StringComparison.OrdinalIgnoreCase) || player.Position == "Goleiro";
+    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static string Id() => Guid.NewGuid().ToString();
+    private static bool ValidName(string? name) => !string.IsNullOrWhiteSpace(name) && name.Trim().Length <= 50;
+    public static readonly string[] Positions = ["Goleiro", "Zagueiro", "Lateral", "Volante", "Meia", "Ponta", "Atacante", "Fixo", "Ala", "Pivô"];
+    private static bool ValidLevel(decimal level) => level is >= 0.5m and <= 5m && level % 0.5m == 0;
+    private static bool ValidPosition(string? position) => position is not null && Positions.Contains(position);
+    [GeneratedRegex("^[a-zA-Z0-9_-]{1,100}$")]
+    private static partial Regex IdPattern();
+    private static bool ValidId(string? id) => id is not null && IdPattern().IsMatch(id);
+
+    public static List<Team> Draw(IReadOnlyList<Player> players, int count, Random? random = null, bool vary = false)
+    {
+        players = players.Where(p => !IsGoalkeeper(p)).ToList();
+        ApiError.Require(count is >= 2 and <= 6 && players.Count >= count,
+            "Selecione pelo menos um jogador por time (2 a 6 times).");
+        random ??= Random.Shared;
+        var teams = Enumerable.Range(1, count).Select(i => new Team(Id(), $"Time {i}", [], 0)).ToList();
+        foreach (var player in players.Select(p => (Player: p, Tie: random.NextDouble()))
+                     .OrderByDescending(p => (double)p.Player.Level + (vary ? p.Tie * 2 : 0)).ThenBy(p => p.Tie).Select(p => p.Player))
+        {
+            var index = Enumerable.Range(0, count).OrderBy(i => teams[i].Players.Count)
+                .ThenBy(i => teams[i].Strength).First();
+            var team = teams[index];
+            team.Players.Add(player.Id);
+            teams[index] = team with { Strength = team.Strength + player.Level };
+        }
+        return teams;
+    }
+
+    public static string Apply(PeladaState state, ActionRequest input, string actorId, string actorName, bool owner)
+    {
+        switch (input.Type)
+        {
+            case "addPlayer":
+                ApiError.Require(state.Players.Count < 500, "Limite de 500 jogadores atingido.");
+                ApiError.Require(ValidName(input.Name), "Informe um nome com até 50 caracteres.");
+                ApiError.Require(ValidLevel(input.Level), "Escolha de 0,5 a 5 estrelas, em passos de 0,5.");
+                ApiError.Require(ValidPosition(input.Position), "Escolha a posição do jogador.");
+                state.Players.Add(new Player(Id(), input.Name!.Trim(), input.Level, input.Position));
+                return $"Cadastrou {input.Name.Trim()}";
+            case "updateLevel":
+            {
+                var index = state.Players.FindIndex(p => p.Id == input.Id);
+                ApiError.Require(index >= 0, "Jogador não encontrado.", 404);
+                ApiError.Require(ValidLevel(input.Level), "Escolha de 0,5 a 5 estrelas, em passos de 0,5.");
+                state.Players[index] = state.Players[index] with { Level = input.Level };
+                return $"Alterou o nível de {state.Players[index].Name}";
+            }
+            case "updatePosition":
+            {
+                var index = state.Players.FindIndex(p => p.Id == input.Id);
+                ApiError.Require(index >= 0, "Jogador não encontrado.", 404);
+                ApiError.Require(ValidPosition(input.Position), "Escolha a posição do jogador.");
+                state.Players[index] = state.Players[index] with { Position = input.Position };
+                return $"Alterou a posição de {state.Players[index].Name}";
+            }
+            case "removePlayer":
+            {
+                var player = state.Players.Find(p => p.Id == input.Id);
+                ApiError.Require(player is not null, "Jogador não encontrado.", 404);
+                ApiError.Require(!state.Rentals.Any(r => r.FinishedAt is null && r.Teams.Any(t => t.Players.Contains(input.Id!))),
+                    "Este jogador participa do aluguel em andamento. Encerre o aluguel antes de excluí-lo.");
+                state.Players.Remove(player!);
+                state.Teams.Clear();
+                state.DrawOptions.Clear();state.SelectedDrawOptionId = null;
+                return $"Excluiu {player!.Name}";
+            }
+            case "generateDrawOptions":
+            {
+                ApiError.Require(input.Count is 3 or 4, "Escolha 3 ou 4 times.");
+                ApiError.Require(input.Players is { Count: <= 500 } && input.Players.Distinct().Count() == input.Players.Count,
+                    "Seleção de jogadores inválida.");
+                ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id)), "Um jogador não está mais no elenco.");
+                var players = state.Players.Where(p => input.Players!.Contains(p.Id)).ToList();
+                var options = new List<DrawOption>();
+                var signatures = new HashSet<string>();
+                static string Signature(List<Team> teams) => string.Join("|", teams.Select(t => string.Join(",", t.Players.Order())).Order());
+                for (var number = 1; number <= 3; number++)
+                {
+                    List<Team> teams = [];
+                    for (var attempt = 0; attempt < 40; attempt++)
+                    {
+                        teams = Draw(players, input.Count, vary: true);
+                        if (signatures.Add(Signature(teams))) break;
+                    }
+                    options.Add(new DrawOption(Id(), number, teams));
+                }
+                state.DrawOptions = options; state.SelectedDrawOptionId = null; state.Teams = [];
+                return "Gerou 3 opções de sorteio para votação no WhatsApp";
+            }
+            case "selectDrawOption":
+            {
+                var option = state.DrawOptions.Find(o => o.Id == input.Id);
+                ApiError.Require(option is not null, "Esta opção de sorteio não está mais disponível.", 409);
+                state.SelectedDrawOptionId = option!.Id;
+                state.Teams = option.Teams.Select(t => t with { Players = [..t.Players] }).ToList();
+                return $"Escolheu o sorteio {option.Number} como vencedor da enquete";
+            }
+            case "draw":
+            {
+                ApiError.Require(input.Players is { Count: <= 500 } && input.Players.Distinct().Count() == input.Players.Count,
+                    "Seleção de jogadores inválida.");
+                ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id)), "Um jogador não está mais no elenco.");
+                state.Teams = Draw(state.Players.Where(p => input.Players!.Contains(p.Id)).ToList(), input.Count);
+                state.DrawOptions = [];state.SelectedDrawOptionId = null;
+                return $"Sorteou {input.Count} times";
+            }
+            case "startRental":
+            {
+                ApiError.Require(!state.Rentals.Any(r => r.FinishedAt is null), "Já existe um aluguel em andamento.");
+                ApiError.Require(state.Rentals.Count < 1000, "Limite de mil aluguéis atingido.");
+                ApiError.Require(ValidName(input.Name), "Informe um nome para o aluguel com até 50 caracteres.");
+                ApiError.Require(input.PlayedOn is not null && input.PlayedOn != DateOnly.MinValue, "Informe o dia da pelada.");
+                ApiError.Require(input.Location is null || input.Location.Trim().Length <= 120, "Informe um local com até 120 caracteres.");
+                ApiError.Require(state.Teams.Count >= 2, "Sorteie os times antes de iniciar o aluguel.");
+                ApiError.Require(!state.Teams.SelectMany(t => t.Players).Any(id => state.Players.Any(p => p.Id == id && IsGoalkeeper(p))),
+                    "Goleiros são sorteados na hora da pelada. Gere novas opções sem goleiros.");
+                ApiError.Require(state.DrawOptions.Count == 0 || state.DrawOptions.Any(o => o.Id == state.SelectedDrawOptionId),
+                    "Escolha o sorteio vencedor da enquete antes de cadastrar a pelada.");
+                var teams = state.Teams.Select(t => t with { Players = [..t.Players] }).ToList();
+                state.Rentals.Add(new Rental(Id(), input.Name!.Trim(), DateTimeOffset.UtcNow, teams, PlayedOn: input.PlayedOn,
+                    Location: string.IsNullOrWhiteSpace(input.Location) ? null : input.Location.Trim()));
+                state.Teams = [];
+                state.DrawOptions = [];state.SelectedDrawOptionId = null;
+                return $"Cadastrou a pelada {input.Name.Trim()} para {input.PlayedOn:dd/MM/yyyy}";
+            }
+            case "finishRental":
+            {
+                var index = state.Rentals.FindIndex(r => r.Id == input.RentalId);
+                ApiError.Require(index >= 0, "Aluguel não encontrado.", 404);
+                var rental = state.Rentals[index];
+                ApiError.Require(rental.FinishedAt is null, "Este aluguel já foi encerrado.");
+                ApiError.Require(rental.PhotoId is not null, "Adicione a foto do aluguel antes de salvar o resultado.");
+                ApiError.Require(input.NoWinner ? input.WinnerTeamId is null : rental.Teams.Any(t => t.Id == input.WinnerTeamId),
+                    "Escolha um time deste aluguel ou a opção sem vencedor.");
+                var winner = input.NoWinner ? null : rental.Teams.Single(t => t.Id == input.WinnerTeamId);
+                ApiError.Require(input.NoWinner ? input.WinningGoalkeeperId is null :
+                    input.WinningGoalkeeperId is null ? !state.Players.Any(IsGoalkeeper) :
+                    state.Players.Any(p => p.Id == input.WinningGoalkeeperId),
+                    "Selecione o goleiro que conquistou o aluguel. Sem vencedor, não informe goleiro vencedor.");
+                state.Rentals[index] = rental with { FinishedAt = DateTimeOffset.UtcNow, WinnerTeamId = winner?.Id,
+                    WinningGoalkeeperId = input.NoWinner ? null : input.WinningGoalkeeperId };
+                return winner is null ? $"Encerrou {rental.Name} sem vencedor e sem conquistas individuais" :
+                    $"Encerrou {rental.Name}: {winner.Name} vencedor, 1 aluguel por jogador";
+            }
+            case "deleteRental":
+            {
+                var rental = state.Rentals.Find(r => r.Id == input.RentalId);
+                ApiError.Require(rental is not null, "Aluguel não encontrado.", 404);
+                state.Rentals.Remove(rental!);
+                state.Matches.RemoveAll(m => m.RentalId == rental!.Id);
+                return $"Apagou o aluguel {rental!.Name}";
+            }
+            case "cancelRental":
+            {
+                var index = state.Rentals.FindIndex(r => r.Id == input.RentalId);
+                ApiError.Require(index >= 0, "Pelada não encontrada.", 404);
+                var rental = state.Rentals[index];
+                ApiError.Require(rental.FinishedAt is null, "Só é possível cancelar uma pelada em andamento.");
+                var now = DateTimeOffset.UtcNow;
+                state.Rentals[index] = rental with { FinishedAt = now, CancelledAt = now, WinnerTeamId = null, WinningGoalkeeperId = null };
+                return $"Cancelou a pelada {rental.Name}, sem conquistas individuais";
+            }
+            case "reopenRental":
+            {
+                ApiError.Require(!state.Rentals.Any(r => r.FinishedAt is null), "Encerre o aluguel em andamento antes de reabrir outro.");
+                var index = state.Rentals.FindIndex(r => r.Id == input.RentalId);
+                ApiError.Require(index >= 0, "Aluguel não encontrado.", 404);
+                var rental = state.Rentals[index];
+                ApiError.Require(rental.CancelledAt is null, "Uma pelada cancelada não pode ter o vencedor corrigido.");
+                ApiError.Require(!rental.IsHistorical, "Este registro histórico não possui times ou vencedor identificado.");
+                state.Rentals[index] = rental with { FinishedAt = null, WinnerTeamId = null, WinningGoalkeeperId = null };
+                state.Teams = rental.Teams.Select(t => t with { Players = [..t.Players] }).ToList();
+                return $"Reabriu {rental.Name} e retirou as conquistas individuais até a correção do vencedor";
+            }
+            case "importLegacy":
+            {
+                ApiError.Require(owner, "Apenas o responsável pode importar os dados iniciais.", 403);
+                ApiError.Require(state.Players.Count == 0 && state.Teams.Count == 0 && state.Matches.Count == 0 && state.Rentals.Count == 0,
+                    "A importação inicial exige uma pelada vazia.", 409);
+                var data = input.Data;
+                ApiError.Require(data?.Players is { Count: <= 500 } && data.Matches is { Count: <= 10000 }, "Arquivo inválido.");
+                ApiError.Require(data!.Players.All(p => p is not null && ValidId(p.Id) && ValidName(p.Name) && ValidLevel(p.Level) && p.InitialRentals is >= 0 and <= 100000 && (p.Position is null || ValidPosition(p.Position))) &&
+                    data.Players.Select(p => p.Id).Distinct().Count() == data.Players.Count, "Jogadores inválidos ou duplicados.");
+                static bool Side(List<string>? ids) => ids is { Count: > 0 and <= 500 } && ids.All(ValidId) && ids.Distinct().Count() == ids.Count;
+                ApiError.Require(data.Matches.All(m => m is not null && ValidId(m.Id) && Side(m.A) && Side(m.B) &&
+                    !m.A.Intersect(m.B).Any() && ValidName(m.NameA) && ValidName(m.NameB) && m.Date != default &&
+                    m.ScoreA is >= 0 and <= 999 && m.ScoreB is >= 0 and <= 999) &&
+                    data.Matches.Select(m => m.Id).Distinct().Count() == data.Matches.Count, "Partidas inválidas ou duplicadas.");
+                ValidateRentals(data);
+                state.Players = data.Players.Select(p => p with { Name = p.Name.Trim() }).ToList();
+                state.Matches = data.Matches.Select(m => m with { CreatedBy = actorId, CreatedByName = "Importação de backup" }).ToList();
+                state.Rentals = data.Rentals.Select(r => r with { PhotoId = null }).ToList();
+                return "Importou jogadores e resultados de um backup";
+            }
+            default: throw new ApiError(400, "Operação desconhecida.");
+        }
+    }
+
+    private static void ValidateRentals(PeladaState data)
+    {
+        ApiError.Require(data.Rentals is { Count: <= 1000 }, "Aluguéis inválidos.");
+        ApiError.Require(data.Rentals!.All(r => r is not null && ValidId(r.Id) && ValidName(r.Name) && r.CreatedAt != default &&
+            (r.Location is null || r.Location.Length <= 120) &&
+            (r.IsHistorical ? r.Teams is {Count: 0} && r.FinishedAt is not null && r.WinnerTeamId is null && r.WinningGoalkeeperId is null : r.Teams is { Count: >= 2 and <= 6 }) &&
+            (r.ParticipantsText is null || r.ParticipantsText.Length <= 20000) &&
+            (r.SourcePhotoUrl is null || (Uri.TryCreate(r.SourcePhotoUrl, UriKind.Absolute, out var photoUri) && photoUri.Scheme == "https")) &&
+            r.Teams.All(t => t is not null && ValidId(t.Id) && ValidName(t.Name) &&
+                t.Players is { Count: > 0 and <= 500 } && t.Players.All(ValidId) && t.Strength >= 0) &&
+            r.Teams.Select(t => t.Id).Distinct().Count() == r.Teams.Count &&
+            r.Teams.SelectMany(t => t.Players).Distinct().Count() == r.Teams.Sum(t => t.Players.Count) &&
+            (r.FinishedAt is null ? r.WinnerTeamId is null : r.FinishedAt >= r.CreatedAt) &&
+            (r.CancelledAt is null || (r.FinishedAt == r.CancelledAt && r.WinnerTeamId is null)) &&
+            (r.WinningGoalkeeperId is null || (r.FinishedAt is not null && r.WinnerTeamId is not null &&
+                data.Players.Any(p => p.Id == r.WinningGoalkeeperId)))) &&
+            data.Rentals.Select(r => r.Id).Distinct().Count() == data.Rentals.Count &&
+            data.Rentals.Count(r => r.FinishedAt is null) <= 1, "Aluguéis ou times inválidos.");
+        foreach (var match in data.Matches)
+        {
+            if (match.RentalId is null)
+            {
+                ApiError.Require(match.TeamAId is null && match.TeamBId is null, "Partida sem aluguel contém times vinculados.");
+                continue;
+            }
+            var rental = data.Rentals.Find(r => r.Id == match.RentalId);
+            var a = rental?.Teams.Find(t => t.Id == match.TeamAId);
+            var b = rental?.Teams.Find(t => t.Id == match.TeamBId);
+            ApiError.Require(a is not null && b is not null && a.Id != b.Id && a.Players.ToHashSet().SetEquals(match.A) &&
+                b.Players.ToHashSet().SetEquals(match.B), "Uma partida não corresponde aos times do aluguel.");
+        }
+        ApiError.Require(data.Rentals.All(r => r.WinnerTeamId is null || r.Teams.Any(t => t.Id == r.WinnerTeamId)),
+            "O vencedor informado não faz parte do aluguel.");
+    }
+}

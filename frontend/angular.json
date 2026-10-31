@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": { "analytics": false },
+  "projects": {
+    "resenha": {
+      "projectType": "application", "root": "", "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": { "browser": "src/main.ts", "index": "src/index.html", "tsConfig": "tsconfig.app.json", "styles": ["src/styles.css", "src/account.css"], "assets": [{"glob":"**/*","input":"public"}], "outputPath": "dist/resenha" },
+          "configurations": {
+            "production": { "outputHashing": "all", "optimization": {"scripts":true,"styles":{"minify":true,"inlineCritical":false},"fonts":false}, "serviceWorker": "ngsw-config.json", "budgets": [{"type":"initial","maximumWarning":"600kB","maximumError":"1MB"}] },
+            "development": { "optimization": false, "sourceMap": true }
+          }, "defaultConfiguration": "production"
+        },
+        "serve": { "builder": "@angular/build:dev-server", "options": {"proxyConfig":"proxy.conf.json"}, "configurations": {"development":{"buildTarget":"resenha:build:development"},"production":{"buildTarget":"resenha:build:production"}}, "defaultConfiguration":"development" },
+        "test": { "builder": "@angular/build:unit-test", "options": { "tsConfig": "tsconfig.spec.json" } }
+      }
+    }
+  }
+}

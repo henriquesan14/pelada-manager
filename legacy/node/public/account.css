@@ -1,0 +1,22 @@
+.signed-out aside{display:none}
+.signed-out main{margin-left:auto;margin-right:auto;max-width:1100px}
+.auth-panel{max-width:480px;margin:48px auto 70px;padding:32px}
+.auth-panel h1{font-size:29px;margin:14px 0}
+.auth-panel>p{margin:14px 0}
+.auth-panel form{display:grid;gap:19px;margin:28px 0 12px}
+.auth-panel .auth-note{font-size:10px;border-top:1px solid #e7ebe5;padding-top:18px;margin-top:20px}
+.auth-message{background:#f6f8f1;padding:15px;border-radius:9px}
+#auth-error{color:#a54c40;font-size:12px}
+#auth-error:empty{display:none}
+.invite-card{margin-bottom:20px}
+.invite-card label{margin-top:20px}
+.invite-card p{margin-top:10px}
+.organizer{display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid #eff1ee}
+.organizer:last-child{border:0}
+.organizer>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.organizer strong{font-size:13px}
+.organizer p{font-size:10px}
+.activity article{font-size:12px;padding:17px 0;border-bottom:1px solid #eff1ee;line-height:1.6}
+.activity small{display:block;color:#96a08f;font-size:10px;margin-top:5px}
+button:disabled,input:disabled,select:disabled{opacity:.55;cursor:wait}
+@media(max-width:650px){nav span{font-size:8px}nav button{padding:7px 1px}.auth-panel{margin:30px auto;padding:24px}.auth-panel h1{font-size:26px}.organizer{flex-wrap:wrap}.organizer .danger{margin-left:45px}.signed-out main{padding-bottom:0}}

@@ -1,0 +1,17 @@
+**/node_modules
+**/bin
+**/obj
+**/dist
+**/.angular
+.git
+.env
+.env.*
+legacy
+data
+keys
+.qa
+.vs
+.aws
+**/*.dump
+**/secrets.json
+**/TestResults

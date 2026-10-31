@@ -1,0 +1,53 @@
+name: resenha
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: resenha
+      POSTGRES_USER: resenha
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Preencha POSTGRES_PASSWORD no arquivo .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${APP_ENV:-Development}
+      ConnectionStrings__Postgres: Host=db;Database=resenha;Username=resenha;Password=${POSTGRES_PASSWORD}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
+      SETUP_TOKEN: ${SETUP_TOKEN:?Preencha SETUP_TOKEN com pelo menos 24 caracteres}
+      PhotoStorage__Provider: ${PHOTO_STORAGE_PROVIDER:-Database}
+      S3__Bucket: ${S3_BUCKET:-alugueis-pelada}
+      S3__Region: ${S3_REGION:-sa-east-1}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - data_protection:/app/keys
+    healthcheck:
+      test: ["CMD", "dotnet", "Pelada.Api.dll", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  postgres_data:
+  data_protection:
