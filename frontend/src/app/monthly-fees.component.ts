@@ -1,3 +1,4 @@
+import { saoPauloToday } from './dates';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { isMonthlyFeePaid, MonthlyFeeMonth } from './models';
@@ -24,7 +25,7 @@ export class MonthlyFeesComponent {
   readonly busy=input(false);
   readonly openMonth=output<string>();
   readonly payment=output<FeePaymentChange>();
-  readonly month=signal(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`);
+  readonly month=signal(saoPauloToday().slice(0,7));
   readonly search=signal('');readonly status=signal<'all'|'paid'|'pending'>('all');
   readonly current=computed(()=>this.months().find(m=>m.month===this.month()));
   readonly expected=computed(()=>(this.current()?.charges.length||0)*(this.current()?.amount||10));

@@ -1,3 +1,4 @@
+import { saoPauloToday } from './dates';
 export interface User { id: string; name: string; nick: string; role: 'owner' | 'organizer'; }
 export interface PlayerSuspension {startedAt:string;until?:string|null;rentalCount?:number|null;}
 export interface Player { suspension?:PlayerSuspension|null; id: string; name: string; level: number; position?: string | null; initialRentals?: number; }
@@ -42,6 +43,6 @@ export function remainingSuspensionRentals(player:Player,rentals:Rental[]):numbe
   const suspension=player.suspension;
   return suspension?.rentalCount ? Math.max(0,suspension.rentalCount-rentals.filter(r=>!r.isHistorical&&!r.cancelledAt&&Date.parse(r.createdAt)>=Date.parse(suspension.startedAt)).length):0;
 }
-export function isPlayerSuspended(player:Player,rentals:Rental[],today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'})):boolean {
+export function isPlayerSuspended(player:Player,rentals:Rental[],today=saoPauloToday()):boolean {
   return player.suspension?.until ? today<=player.suspension.until : remainingSuspensionRentals(player,rentals)>0;
 }

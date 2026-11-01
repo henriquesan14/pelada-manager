@@ -1,3 +1,4 @@
+import { saoPauloToday } from './dates';
 import { Component, computed, effect, ElementRef, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { isMonthlyFeePaid, MonthlyFeeMonth, Player } from './models';
@@ -15,8 +16,8 @@ export class PlayerFeesDialogComponent {
   readonly months=input<MonthlyFeeMonth[]>([]);
   readonly close=output<void>();
   readonly dialog=viewChild<ElementRef<HTMLDialogElement>>('dialog');
-  readonly year=signal(String(new Date().getFullYear()));
-  readonly years=computed(()=>[...new Set([String(new Date().getFullYear()),...this.months().filter(m=>m.charges.some(c=>c.playerId===this.player().id)).map(m=>m.month.slice(0,4))])].sort().reverse());
+  readonly year=signal(saoPauloToday().slice(0,4));
+  readonly years=computed(()=>[...new Set([saoPauloToday().slice(0,4),...this.months().filter(m=>m.charges.some(c=>c.playerId===this.player().id)).map(m=>m.month.slice(0,4))])].sort().reverse());
   readonly rows=computed(()=>['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((name,index)=>{
     const month=`${this.year()}-${String(index+1).padStart(2,'0')}`;
     const ledger=this.months().find(m=>m.month===month);const charge=ledger?.charges.find(c=>c.playerId===this.player().id);

@@ -1,3 +1,4 @@
+import { saoPauloToday } from './dates';
 import { Component, effect, ElementRef, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Player } from './models';
@@ -16,7 +17,7 @@ export interface SuspensionChange {id:string;suspensionUntil?:string;suspensionR
 export class PlayerSuspensionDialogComponent {
   readonly player=input.required<Player>();readonly busy=input(false);readonly save=output<SuspensionChange>();readonly close=output<void>();
   readonly dialog=viewChild<ElementRef<HTMLDialogElement>>('dialog');readonly type=signal<'date'|'rentals'>('date');
-  readonly today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});until=this.today;count=1;
+  readonly today=saoPauloToday();until=this.today;count=1;
   submit():void {if(this.busy())return;this.save.emit(this.type()==='date'?{id:this.player().id,suspensionUntil:this.until}:{id:this.player().id,suspensionRentals:this.count});}
   constructor(){effect(onCleanup=>{const dialog=this.dialog()?.nativeElement;if(!dialog)return;const overflow=document.body.style.overflow;document.body.style.overflow='hidden';dialog.showModal();onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});});}
 }

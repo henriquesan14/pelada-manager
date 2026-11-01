@@ -1,3 +1,4 @@
+import { saoPauloToday, formatCalendarDate, formatRentalDate, formatSaoPauloDateTime } from './dates';
 import { DrawShareDialogComponent } from './draw-share-dialog.component';
 import { PlayerSuspensionDialogComponent, SuspensionChange } from './player-suspension-dialog.component';
 import { PlayerFeesDialogComponent } from './player-fees-dialog.component';
@@ -7,7 +8,7 @@ import { GroupRulesComponent } from './group-rules.component';
 import { PlayerAutocompleteComponent } from './player-autocomplete.component';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { SwUpdate } from '@angular/service-worker';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
@@ -17,7 +18,7 @@ import { Activity, emptyState, Invitation, isGoalkeeper, isPlayerSuspended, rema
 import { RankingComponent } from './ranking.component';
 import { StarRatingComponent } from './star-rating.component';
 
-@Component({ selector: 'app-pelada', imports: [FormsModule, DatePipe, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'app-pelada', imports: [FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
   private readonly destroy = inject(DestroyRef);
@@ -94,9 +95,11 @@ export class AppComponent {
   teamCount = 3;
   winnerSelection = '';
   goalkeeperSelection = '';
-  rentalName = `Pelada de ${new Date().toLocaleDateString('pt-BR')}`;
+  readonly formatRentalDate=formatRentalDate;
+  readonly formatDateTime=formatSaoPauloDateTime;
+  rentalName = `Pelada de ${formatCalendarDate(saoPauloToday())}`;
   rentalLocation = '';
-  rentalDate = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+  rentalDate = saoPauloToday();
   private toastTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {

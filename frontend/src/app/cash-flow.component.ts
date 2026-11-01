@@ -1,3 +1,4 @@
+import { saoPauloToday } from './dates';
 import { Component, computed, effect, ElementRef, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CashIncome, CashExpense, isMonthlyFeePaid, MonthlyFeeMonth } from './models';
@@ -35,7 +36,7 @@ export class CashFlowComponent {
   expenseDate=this.today();
   expenseAmount:number|null=null;
   expenseDescription='';
-  private today():string {const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;}
+  private today():string {return saoPauloToday();}
   submitIncome():void {if(this.readOnly()||this.busy()||!this.incomeDate||!this.incomeAmount||!this.incomeDescription.trim())return;this.addIncome.emit({incomeDate:this.incomeDate,amount:this.incomeAmount,description:this.incomeDescription.trim()});}
   incomeSaved():void {this.year.set(this.incomeDate.slice(0,4));this.showIncomeForm.set(false);this.incomeDate=this.today();this.incomeAmount=null;this.incomeDescription='';}
   submitExpense():void {if(this.readOnly()||this.busy()||!this.expenseDate||!this.expenseAmount||!this.expenseDescription.trim())return;this.addExpense.emit({expenseDate:this.expenseDate,amount:this.expenseAmount,description:this.expenseDescription.trim()});}
@@ -47,7 +48,7 @@ export class CashFlowComponent {
     (this.months().reduce((sum,month)=>sum+this.paidCount(month)*Math.round(month.amount*100),0)+
       this.incomes().reduce((sum,income)=>sum+Math.round(income.amount*100),0)-
       this.expenses().reduce((sum,expense)=>sum+Math.round(expense.amount*100),0))/100);
-  readonly year=signal(String(new Date().getFullYear()));
+  readonly year=signal(saoPauloToday().slice(0,4));
   readonly years=computed(()=>[...new Set([this.year(),...this.months().map(m=>m.month.slice(0,4)),...this.expenses().map(e=>e.date.slice(0,4)),...this.incomes().map(e=>e.date.slice(0,4))])].sort().reverse());
   readonly yearMonths=computed(()=>this.months().filter(m=>m.month.startsWith(this.year()+'-')).sort((a,b)=>a.month.localeCompare(b.month)));
   readonly annualReceived=computed(()=>this.yearMonths().reduce((sum,m)=>sum+this.paidCount(m)*m.amount,0)+this.yearIncomes().reduce((sum,income)=>sum+income.amount,0));
