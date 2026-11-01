@@ -55,3 +55,5 @@ nav .mobile-more{display:none}
 .winner-choice{background:#fff;display:flex;flex-direction:column;gap:10px;width:100%;text-align:left;font:inherit;color:var(--caps-ink);cursor:pointer}.winner-choice-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:15px;font-weight:700}.winner-choice-players{font-size:12px;line-height:1.7;color:var(--caps-muted)}.winner-choice:hover{border-color:var(--caps-gold)}.winner-choice.winner-selected{border-color:var(--caps-gold);background:var(--caps-gold-soft);box-shadow:inset 0 0 0 1px var(--caps-gold)}.winner-choice:disabled{opacity:.6;cursor:wait}
 
 .draw-selection-heading{position:sticky;top:0;z-index:2;background:#fff;padding:14px 0;box-shadow:0 10px 12px -12px #071b3540}.draw-selection-heading .badge{flex-shrink:0}
+
+.rental-registration{scroll-margin-top:16px;margin-top:0;margin-bottom:24px}

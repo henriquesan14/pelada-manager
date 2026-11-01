@@ -6,7 +6,7 @@ import { CashFlowComponent, NewExpense, NewIncome } from './cash-flow.component'
 import { FeePaymentChange, MonthlyFeesComponent } from './monthly-fees.component';
 import { GroupRulesComponent } from './group-rules.component';
 import { PlayerAutocompleteComponent } from './player-autocomplete.component';
-import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -21,6 +21,8 @@ import { StarRatingComponent } from './star-rating.component';
 @Component({ selector: 'app-pelada', imports: [FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
+  private readonly injector=inject(Injector);
+  readonly rentalRegistration=viewChild<ElementRef<HTMLElement>>('rentalRegistration');
   private readonly destroy = inject(DestroyRef);
   private readonly updates = inject(SwUpdate);
   private readonly router = inject(Router);
@@ -230,7 +232,8 @@ export class AppComponent {
       window.scrollTo({top:0,left:0,behavior:'smooth'});
   }
   async chooseDrawOption(id: string): Promise<void> {
-    await this.perform({type:'selectDrawOption',id}, 'Sorteio vencedor escolhido. Agora cadastre a pelada.');
+    if(await this.perform({type:'selectDrawOption',id}, 'Sorteio vencedor escolhido. Agora cadastre a pelada.'))
+      afterNextRender(()=>{if(this.page()==='sorteio')this.rentalRegistration()?.nativeElement.scrollIntoView({behavior:'smooth',block:'start'});},{injector:this.injector});
   }
   selectRental(id: string): void {
     this.selectedRentalId.set(id);this.clearPhoto();this.winnerSelection='';this.goalkeeperSelection='';

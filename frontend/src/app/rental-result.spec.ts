@@ -27,6 +27,7 @@ describe('resultado da pelada sem partidas',()=>{
     // jsdom does not implement the native dialog methods.
     HTMLDialogElement.prototype.showModal=function(){this.open=true;};
     HTMLDialogElement.prototype.close=function(){this.open=false;};
+    Element.prototype.scrollIntoView=vi.fn();
   });
   it('pesquisa e seleciona um jogador de linha que foi para o gol',async()=>{
     const{fixture,api}=await setup(true);const app=fixture.componentInstance;
@@ -81,7 +82,9 @@ describe('resultado da pelada sem partidas',()=>{
     await app.chooseDrawOption('option-2');fixture.detectChanges();
     expect(api.action).toHaveBeenCalledWith({type:'selectDrawOption',id:'option-2',revision:5});
     expect(root.querySelector('.draw-option.chosen')?.textContent).toContain('Sorteio 2');
-    expect(root.querySelector('input[name="rentalDate"]')).not.toBeNull();fixture.destroy();
+    expect(root.querySelector('input[name="rentalDate"]')).not.toBeNull();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({behavior:'smooth',block:'start'});
+    expect(root.querySelector('.rental-registration')!.compareDocumentPosition(root.querySelector('.teams')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);fixture.destroy();
   });
   it('fixa o último aluguel com foto e só revela os jogadores do histórico ao visualizar',async()=>{
     const{fixture}=await setup();const app=fixture.componentInstance;
