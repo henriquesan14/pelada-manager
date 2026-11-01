@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -43,8 +44,9 @@ public sealed class RentalPhoto
     public string UploadedBy { get; set; } = "";
     public DateTimeOffset UploadedAt { get; set; } = DateTimeOffset.UtcNow;
 }
-public sealed class PeladaDb(DbContextOptions<PeladaDb> options) : IdentityDbContext<Organizer>(options)
+public sealed class PeladaDb(DbContextOptions<PeladaDb> options) : IdentityDbContext<Organizer>(options), IDataProtectionKeyContext
 {
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<StateDocument> Pelada => Set<StateDocument>();
     public DbSet<Activity> Activities => Set<Activity>();

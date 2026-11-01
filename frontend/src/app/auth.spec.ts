@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { SwUpdate } from '@angular/service-worker';
@@ -34,6 +35,14 @@ describe('acesso por nick', () => {
     expect(api.login).toHaveBeenCalledWith(expect.objectContaining({nick:'rico10'}));
     expect(api.login.mock.calls[0][0]).not.toHaveProperty('email');
     fixture.destroy();
+  });
+  it('tenta recuperar a sessão quando o servidor fica indisponível durante um deploy',async()=>{
+    const{fixture,api}=await setup(false);const app=fixture.componentInstance;
+    app.session.set(null);api.session.mockRejectedValueOnce(new HttpErrorResponse({status:503}));
+    await app.bootstrap();fixture.detectChanges();expect(fixture.nativeElement.querySelector('input[type="password"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Reconectando ao servidor');
+    api.session.mockResolvedValueOnce({user:{id:'1',name:'Rico',nick:'rico10',role:'owner'},needsSetup:false,setupEnabled:true} as any);
+    await app.refresh(true);expect(app.user()?.nick).toBe('rico10');expect(api.login).not.toHaveBeenCalled();fixture.destroy();
   });
   it('usa nick também no cadastro inicial', async () => {
     const {fixture,api}=await setup(true);

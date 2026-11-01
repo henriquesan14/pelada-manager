@@ -169,7 +169,11 @@ export class AppComponent {
       this.authMode.set(info.needsSetup ? 'setup' : this.auth.invite ? 'register' : 'login');
       if (info.user) {this.apply(await this.api.state());if(this.page()==='organizadores')void this.loadOrganizers();}
       else if(this.isPublicPage())this.apply(await this.api.publicState());
-    } catch { this.session.set(null); this.clearSession(); }
+    } catch (error) {
+      this.connected.set(false);
+      if(error instanceof HttpErrorResponse && error.status===401){this.session.set({user:null,needsSetup:false,setupEnabled:false});this.clearSession();}
+      else this.toast('Servidor temporariamente indisponível. Tentando reconectar…');
+    }
     finally { this.loading.set(false); }
   }
   async authenticate(): Promise<void> {
@@ -179,7 +183,7 @@ export class AppComponent {
       const result = this.authMode() === 'login' ? await this.api.login(this.auth) : await this.api.register(this.auth);
       this.user.set(result.user); this.auth.password = ''; this.auth.setupToken = ''; this.auth.invite = '';
       this.apply(await this.api.state());
-    } catch (error) { this.authError.set(this.errorMessage(error)); if (this.user()) this.clearSession(); }
+    } catch (error) { this.authError.set(this.errorMessage(error)); if (this.user() && error instanceof HttpErrorResponse && error.status===401) this.clearSession(); }
     finally { this.busy.set(false); }
   }
   async logout(): Promise<void> {
@@ -188,6 +192,7 @@ export class AppComponent {
     catch (error) { this.toast(this.errorMessage(error)); }
   }
   async refresh(force = false): Promise<void> {
+    if(!this.session()&&!this.loading()&&!this.busy()){await this.bootstrap();return;}
     if ((!this.user()&&!this.isPublicPage()) || this.busy()) return;
     try {
       const next = await (this.user()?this.api.state():this.api.publicState()); this.connected.set(true);

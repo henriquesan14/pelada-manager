@@ -4,6 +4,8 @@ Gerenciador de pelada para web e celular, com vários organizadores compartilhan
 
 O controle de [mensalidades](docs/mensalidades.md), com consulta pública e alterações restritas aos organizadores, registra R$ 10,00 por jogador a cada mês, com pagamentos, pendências e histórico.
 
+Veja também [como as sessões sobrevivem aos deploys](docs/sessoes.md).
+
 ## Stack
 
 Para usar o bucket privado `alugueis-pelada` em `sa-east-1`, veja [S3 e User Secrets da API](docs/s3.md). A configuração Docker para ler `secrets.json` está em `compose.secrets.yaml`.

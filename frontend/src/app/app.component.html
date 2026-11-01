@@ -10,6 +10,7 @@
   <main>
     <header><span class="header-brand"><img src="/caps-fc-logo.png" alt="CAPS FC" width="28" height="32"><span>CAPS FC</span></span>@if(user(); as current) {<button class="text-button" [disabled]="busy()" (click)="logout()">Sair</button><span class="avatar" [title]="current.name">{{initials(current.name)}}</span>} @else {<a class="text-button" [routerLink]="paths.inicio">Entrar como organizador</a>}</header>
     @if(loading()) {<div class="empty" role="status">Conectando à pelada…</div>}
+    @else if(!session()) {<section class="card empty" role="status"><h2>Reconectando ao servidor…</h2><p>Aguarde um momento. Sua sessão será verificada automaticamente.</p><button type="button" class="text-button" (click)="bootstrap()">Tentar novamente</button></section>}
     @else if(!user() && !isPublicPage()) {
       <section class="auth-panel card"><img class="auth-logo" src="/caps-fc-logo.png" alt="CAPS FC — Club de Atenção aos Peladeiros" width="112" height="128"><p><a [routerLink]="paths.ranking">Ver ranking</a> · <a [routerLink]="paths.partidas">Ver aluguéis</a> · <a [routerLink]="paths.regras">Regras do grupo</a> · <a [routerLink]="paths.mensalidades">Mensalidades</a> · <a [routerLink]="paths.financeiro">Entradas e saídas</a></p>
         <div class="eyebrow">UMA PELADA. TODA A ORGANIZAÇÃO.</div>

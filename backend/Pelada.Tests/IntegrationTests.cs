@@ -83,6 +83,16 @@ public sealed class IntegrationTests
         var login = await Request("login", new { nick = " RICO10 ", password = "Synthetic-password-123" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         ownerCookie = Cookie(login);
+        // A fresh application/service provider must accept the existing cookie.
+        await using(var restarted=new WebApplicationFactory<Program>())
+        {
+            using var afterRestart=restarted.CreateClient(new WebApplicationFactoryClientOptions{BaseAddress=new Uri("http://localhost:4200"),HandleCookies=false});
+            using var restoreSession=new HttpRequestMessage(HttpMethod.Get,"/api/session");restoreSession.Headers.Add("Cookie",ownerCookie);
+            var restoredSession=await Json(await afterRestart.SendAsync(restoreSession));
+            Assert.Equal("rico10",restoredSession["user"]!["nick"]!.GetValue<string>());
+            await using var scope=restarted.Services.CreateAsyncScope();
+            Assert.NotEmpty(await scope.ServiceProvider.GetRequiredService<PeladaDb>().DataProtectionKeys.ToListAsync());
+        }
         var invite = (await Json(await Request("invites", new { }, ownerCookie)))["invite"]!.GetValue<string>();
         var duplicateNick = await Request("register", new { name = "Duplicado", nick = "RICO10", password = "Synthetic-password-123", invite });
         Assert.Equal(HttpStatusCode.Conflict, duplicateNick.StatusCode);

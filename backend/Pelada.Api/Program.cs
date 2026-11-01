@@ -52,7 +52,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return context.Response.WriteAsJsonAsync(new { Error = "Acesso negado." }); };
 });
 builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
-builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["DATA_PROTECTION_PATH"] ?? "keys"))
+builder.Services.AddDataProtection().PersistKeysToDbContext<PeladaDb>()
     .SetApplicationName("Resenha");
 builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
@@ -109,7 +109,11 @@ app.MapGet("/api/health", async (PeladaDb db) => await db.Database.CanConnectAsy
 app.MapPelada();
 app.MapRentalPhotos();
 await using (var scope = app.Services.CreateAsyncScope())
-    await scope.ServiceProvider.GetRequiredService<PeladaDb>().Database.MigrateAsync();
+{
+    var db=scope.ServiceProvider.GetRequiredService<PeladaDb>();
+    await db.Database.MigrateAsync();
+    await SessionKeyImport.ImportAsync(db,builder.Configuration["DATA_PROTECTION_PATH"] ?? "keys");
+}
 await app.RunAsync();
 return 0;
 
