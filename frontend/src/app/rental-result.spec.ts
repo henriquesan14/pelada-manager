@@ -114,6 +114,21 @@ describe('resultado da pelada sem partidas',()=>{
     const fixture=TestBed.createComponent(AppComponent);await fixture.whenStable();fixture.detectChanges();
     return{fixture,api};
   }
+  it('seleciona o vencedor diretamente no cartão e só grava ao salvar',async()=>{
+    const{fixture,api}=await setup(true);const app=fixture.componentInstance;app.page.set('partidas');fixture.detectChanges();
+    const root=fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('select[name="winner"]')).toBeNull();
+    const cards=root.querySelectorAll<HTMLButtonElement>('.winner-choice');
+    expect(cards.length).toBe(3);
+    const submit=root.querySelector<HTMLButtonElement>('.rental-result-form button[type="submit"]')!;expect(submit.disabled).toBe(true);
+    cards[1].click();fixture.detectChanges();expect(app.winnerSelection).toBe('b');expect(cards[1].getAttribute('aria-pressed')).toBe('true');expect(api.action).not.toHaveBeenCalled();
+    app.goalkeeperSelection='p1';await app.finishRental();
+    expect(api.action).toHaveBeenCalledWith({type:'finishRental',rentalId:'r1',winnerTeamId:'b',noWinner:false,winningGoalkeeperId:'p1',revision:1});fixture.destroy();
+  });
+  it('ignora o marcador de goleiro ao gerar as iniciais do avatar',async()=>{
+    const{fixture}=await setup();const app=fixture.componentInstance;
+    expect(app.initials('Guga (GL)')).toBe('G');expect(app.initials('João Silva (gl) ')).toBe('JS');expect(app.initials('Ana')).toBe('A');fixture.destroy();
+  });
   it('envia a foto antes de salvar o vencedor sem cadastrar jogos',async()=>{
     const{fixture,api}=await setup();const app=fixture.componentInstance;
     app.winnerSelection='b';app.goalkeeperSelection='p1';const photo=new File(['test-image'],'aluguel.png',{type:'image/png'});app.selectedPhoto.set(photo);

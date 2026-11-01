@@ -141,7 +141,7 @@ export class AppComponent {
     });
     void this.bootstrap();
   }
-  initials(name: string): string { return name.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase(); }
+  initials(name: string): string { return name.replace(/\s*\(GL\)\s*$/i,'').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase(); }
   playerLabel(id: string): string { return this.state().players.find(p => p.id === id)?.name || 'Jogador removido'; }
   invitationUrl(): string { return `${location.origin}/#convite=${this.invitation()?.invite || ''}`; }
   toast(message: string): void { clearTimeout(this.toastTimer); this.toastMessage.set(message); this.toastTimer = setTimeout(() => this.toastMessage.set(''), 5000); }
