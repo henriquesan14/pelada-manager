@@ -57,3 +57,5 @@ nav .mobile-more{display:none}
 .draw-selection-heading{position:sticky;top:0;z-index:2;background:#fff;padding:14px 0;box-shadow:0 10px 12px -12px #071b3540}.draw-selection-heading .badge{flex-shrink:0}
 
 .rental-registration{scroll-margin-top:16px;margin-top:0;margin-bottom:24px}
+
+.registration-dialog{max-height:90dvh;overflow-y:auto}.registration-dialog .section-heading{margin-bottom:22px}

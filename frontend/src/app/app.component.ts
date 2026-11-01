@@ -6,7 +6,7 @@ import { CashFlowComponent, NewExpense, NewIncome } from './cash-flow.component'
 import { FeePaymentChange, MonthlyFeesComponent } from './monthly-fees.component';
 import { GroupRulesComponent } from './group-rules.component';
 import { PlayerAutocompleteComponent } from './player-autocomplete.component';
-import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
+import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -21,8 +21,8 @@ import { StarRatingComponent } from './star-rating.component';
 @Component({ selector: 'app-pelada', imports: [FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
-  private readonly injector=inject(Injector);
-  readonly rentalRegistration=viewChild<ElementRef<HTMLElement>>('rentalRegistration');
+  readonly registrationDialog=viewChild<ElementRef<HTMLDialogElement>>('registrationDialog');
+  readonly showRegistration=signal(false);
   private readonly destroy = inject(DestroyRef);
   private readonly updates = inject(SwUpdate);
   private readonly router = inject(Router);
@@ -106,6 +106,11 @@ export class AppComponent {
 
   constructor() {
     effect(onCleanup=>{
+      const dialog=this.registrationDialog()?.nativeElement;if(!dialog)return;
+      const overflow=document.body.style.overflow;document.body.style.overflow='hidden';dialog.showModal();
+      onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});
+    });
+    effect(onCleanup=>{
       const dialog=this.mobileMenuDialog()?.nativeElement;if(!dialog||!this.showMobileMenu())return;
       const overflow=document.body.style.overflow;document.body.style.overflow='hidden';dialog.showModal();
       onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});
@@ -120,7 +125,7 @@ export class AppComponent {
       onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});
     });
     const navigation = this.router.events.subscribe(event => {
-      if(event instanceof NavigationEnd){this.showMobileMenu.set(false);this.page.set(pageFromUrl(event.urlAfterRedirects));if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
+      if(event instanceof NavigationEnd){this.showMobileMenu.set(false);this.showRegistration.set(false);this.page.set(pageFromUrl(event.urlAfterRedirects));if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
     });
     this.destroy.onDestroy(()=>navigation.unsubscribe());
     this.auth.invite = new URLSearchParams(location.hash.slice(1)).get('convite') || '';
@@ -233,7 +238,7 @@ export class AppComponent {
   }
   async chooseDrawOption(id: string): Promise<void> {
     if(await this.perform({type:'selectDrawOption',id}, 'Sorteio vencedor escolhido. Agora cadastre a pelada.'))
-      afterNextRender(()=>{if(this.page()==='sorteio')this.rentalRegistration()?.nativeElement.scrollIntoView({behavior:'smooth',block:'start'});},{injector:this.injector});
+      this.showRegistration.set(!this.activeRental());
   }
   selectRental(id: string): void {
     this.selectedRentalId.set(id);this.clearPhoto();this.winnerSelection='';this.goalkeeperSelection='';
@@ -247,7 +252,7 @@ export class AppComponent {
   }
   async startRental(): Promise<void> {
     if(await this.perform({type:'startRental',name:this.rentalName.trim(),playedOn:this.rentalDate,location:this.rentalLocation.trim() || null},'Pelada cadastrada com os times e o dia escolhido.')){
-      this.selectRental(this.activeRental()!.id);this.go('partidas');
+      this.showRegistration.set(false);this.selectRental(this.activeRental()!.id);this.go('partidas');
     }
   }
   async finishRental(): Promise<void> {

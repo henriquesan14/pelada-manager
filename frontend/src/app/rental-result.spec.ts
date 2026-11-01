@@ -83,8 +83,12 @@ describe('resultado da pelada sem partidas',()=>{
     expect(api.action).toHaveBeenCalledWith({type:'selectDrawOption',id:'option-2',revision:5});
     expect(root.querySelector('.draw-option.chosen')?.textContent).toContain('Sorteio 2');
     expect(root.querySelector('input[name="rentalDate"]')).not.toBeNull();
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({behavior:'smooth',block:'start'});
-    expect(root.querySelector('.rental-registration')!.compareDocumentPosition(root.querySelector('.teams')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);fixture.destroy();
+    const registration=root.querySelector('.registration-dialog') as HTMLDialogElement;expect(registration.open).toBe(true);
+    expect(registration.querySelector('input[name="rentalName"]')).not.toBeNull();expect(registration.querySelector('input[name="rentalLocation"]')).not.toBeNull();
+    (registration.querySelector('[aria-label="Fechar cadastro"]') as HTMLButtonElement).click();fixture.detectChanges();
+    expect(root.querySelector('.registration-dialog')).toBeNull();expect(app.state().selectedDrawOptionId).toBe('option-2');
+    (root.querySelector('.rental-registration button') as HTMLButtonElement).click();fixture.detectChanges();
+    expect((root.querySelector('.registration-dialog') as HTMLDialogElement).open).toBe(true);fixture.destroy();
   });
   it('fixa o último aluguel com foto e só revela os jogadores do histórico ao visualizar',async()=>{
     const{fixture}=await setup();const app=fixture.componentInstance;
@@ -185,6 +189,7 @@ describe('resultado da pelada sem partidas',()=>{
     api.action.mockResolvedValue({revision:6,state:{...emptyState(),rentals:[{id:'r2',name:'Sábado',createdAt:'2026-10-30T12:00:00Z',playedOn:'2026-11-07',teams}]}});
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Cadastrar pelada');
+    (fixture.nativeElement.querySelector('.rental-registration button') as HTMLButtonElement).click();fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('input[type="date"]')).not.toBeNull();
     await app.startRental();
     expect(api.action).toHaveBeenCalledWith({type:'startRental',name:'Sábado',playedOn:'2026-11-07',location:'Arena Central',revision:5});
