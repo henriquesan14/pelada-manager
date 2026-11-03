@@ -86,14 +86,16 @@
                 <form #resultForm="ngForm" class="rental-result-form" (ngSubmit)="resultForm.valid && finishRental()"><fieldset [disabled]="busy()">
 
                   @if(winnerSelection && winnerSelection !== 'none') {<app-player-autocomplete [players]="sortedPlayers()" [(value)]="goalkeeperSelection" [disabled]="busy()" /><p>Pode selecionar qualquer jogador que tenha jogado no gol, mesmo sem (GL) no nome.</p>}
-                  <label>Foto do aluguel<input #rentalPhoto type="file" accept="image/jpeg,image/png,image/webp" (change)="choosePhoto(rentalPhoto.files?.[0]); rentalPhoto.value = ''"></label><p>JPEG, PNG ou WebP · até 8 MB. Pode escolher uma foto da galeria do celular.</p>
+                  <label>Foto do aluguel<input #rentalPhoto type="file" accept="image/jpeg,image/png,image/webp" (change)="choosePhoto(rentalPhoto.files?.[0]); rentalPhoto.value = ''"></label><p>A foto será reduzida automaticamente para envio. Pode escolher uma foto da galeria do celular.</p>
                   @if(currentPhotoUrl(); as photo) {<img class="rental-photo" [src]="photo" [alt]="'Foto de ' + rental.name">}
-                  <button class="primary" type="submit" [disabled]="!winnerSelection || !resultForm.valid || (winnerSelection !== 'none' && !goalkeeperSelection) || (!selectedPhoto() && !rental.photoId)">{{busy() ? 'Salvando…' : 'Salvar vencedor e foto'}}</button>
+                  <button class="primary" type="submit" [disabled]="preparingPhoto() || !winnerSelection || !resultForm.valid || (winnerSelection !== 'none' && !goalkeeperSelection) || (!selectedPhoto() && !rental.photoId)">{{busy() ? 'Salvando…' : 'Salvar vencedor e foto'}}</button>
                 </fieldset></form>
               } @else if(user() && !rental.cancelledAt) {
-                <div class="photo-update"><label>Adicionar ou trocar foto<input #replacePhoto type="file" accept="image/jpeg,image/png,image/webp" [disabled]="busy()" (change)="choosePhoto(replacePhoto.files?.[0]); replacePhoto.value = ''"></label>@if(selectedPhoto()) {<button class="primary" [disabled]="busy()" (click)="savePhoto()">Salvar foto</button>}</div>
+                <div class="photo-update"><label>Adicionar ou trocar foto<input #replacePhoto type="file" accept="image/jpeg,image/png,image/webp" [disabled]="busy()" (change)="choosePhoto(replacePhoto.files?.[0]); replacePhoto.value = ''"></label>@if(selectedPhoto()) {<button class="primary" [disabled]="busy() || preparingPhoto()" (click)="savePhoto()">Salvar foto</button>}</div>
                 @if(!activeRental() && !rental.isHistorical) {<button class="text-button" [disabled]="busy()" (click)="reopenRental()">Corrigir o time vencedor</button>}
               }
+              @if(preparingPhoto()) {<p role="status">Preparando foto…</p>}
+              @if(photoError()) {<p role="alert">{{photoError()}}</p>}
             </section>
           }
           </ng-template>

@@ -1,3 +1,4 @@
+import { preparePhoto } from './photo';
 import { saoPauloToday, formatCalendarDate, formatRentalDate, formatSaoPauloDateTime } from './dates';
 import { DrawShareDialogComponent } from './draw-share-dialog.component';
 import { PlayerSuspensionDialogComponent, SuspensionChange } from './player-suspension-dialog.component';
@@ -59,6 +60,9 @@ export class AppComponent {
   readonly finalizedRentals = computed(() => this.state().rentals.filter(r => !!r.finishedAt && !r.cancelledAt));
   readonly recentRentals = computed(() => [...this.state().rentals].sort((a,b)=>(b.playedOn || b.finishedAt || b.createdAt).localeCompare(a.playedOn || a.finishedAt || a.createdAt)));
   readonly latestRental = computed(() => this.recentRentals().find(r => !!r.finishedAt && !r.cancelledAt) || null);
+  readonly preparingPhoto = signal(false);
+  readonly photoError = signal('');
+  private photoSelection = 0;
   readonly selectedPhoto = signal<File|null>(null);
   readonly photoPreview = signal<string|null>(null);
   readonly currentPhotoUrl = computed(() => this.photoPreview() || (this.currentRental()?.photoId ? `/api/rentals/${this.currentRental()!.id}/photo?v=${this.snapshot().revision}` : null));
@@ -292,21 +296,26 @@ export class AppComponent {
     if(confirm('Corrigir o vencedor? A conquista deste aluguel será retirada do ranking até você salvar novamente.'))
       if(await this.perform({type:'reopenRental',rentalId:rental.id},'Escolha o vencedor correto e salve o resultado.'))this.winnerSelection='';this.goalkeeperSelection='';
   }
-  private clearPhoto(): void {const url=this.photoPreview();if(url)URL.revokeObjectURL(url);this.photoPreview.set(null);this.selectedPhoto.set(null);}
+  private clearPhoto(): void {this.photoSelection++;this.preparingPhoto.set(false);this.photoError.set('');const url=this.photoPreview();if(url)URL.revokeObjectURL(url);this.photoPreview.set(null);this.selectedPhoto.set(null);}
   async choosePhoto(file: File|undefined): Promise<void> {
     if(!file)return;
     const rentalId=this.currentRental()?.id;
-    if(file.size>8*1024*1024){this.toast('Escolha uma foto de até 8 MB.');return;}
-    if(!['image/jpeg','image/png','image/webp'].includes(file.type)){this.toast('Escolha uma foto JPEG, PNG ou WebP.');return;}
-    try {const image=await createImageBitmap(file);image.close();}catch{this.toast('Não foi possível abrir esta foto. Escolha outra imagem.');return;}
-    if(rentalId!==this.currentRental()?.id)return;
-    this.clearPhoto();this.selectedPhoto.set(file);this.photoPreview.set(URL.createObjectURL(file));
+    const selection=++this.photoSelection;
+    this.preparingPhoto.set(true);this.photoError.set('');
+    try {
+      const photo=await preparePhoto(file);
+      if(selection!==this.photoSelection||rentalId!==this.currentRental()?.id)return;
+      this.clearPhoto();this.selectedPhoto.set(photo);this.photoPreview.set(URL.createObjectURL(photo));
+    } catch(error) {
+      if(selection===this.photoSelection)this.photoError.set(error instanceof Error?error.message:'Não foi possível preparar a foto.');
+    } finally {if(selection===this.photoSelection)this.preparingPhoto.set(false);}
   }
+
   async savePhoto(): Promise<boolean> {
-    const file=this.selectedPhoto(),rental=this.currentRental();if(!file||!rental||this.busy())return false;
-    this.busy.set(true);
+    const file=this.selectedPhoto(),rental=this.currentRental();if(!file||!rental||this.busy()||this.preparingPhoto())return false;
+    this.busy.set(true);this.photoError.set('');
     try{this.apply(await this.api.uploadPhoto(rental.id,file,this.snapshot().revision));this.clearPhoto();return true;}
-    catch(error){if(error instanceof HttpErrorResponse&&error.status===409){try{this.apply(await this.api.state());}catch{this.connected.set(false);}}if(error instanceof HttpErrorResponse&&error.status===401)this.clearSession();this.toast(this.errorMessage(error));return false;}
+    catch(error){if(error instanceof HttpErrorResponse&&error.status===409){try{this.apply(await this.api.state());}catch{this.connected.set(false);}}if(error instanceof HttpErrorResponse&&error.status===401)this.clearSession();this.photoError.set(this.errorMessage(error));return false;}
     finally{this.busy.set(false);}
   }
   export(data = this.state()): void {
