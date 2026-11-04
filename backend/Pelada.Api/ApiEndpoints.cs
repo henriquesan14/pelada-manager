@@ -148,7 +148,7 @@ public static class ApiEndpoints
     {
         ApiError.Require(!string.IsNullOrWhiteSpace(input.Name) && input.Name.Trim().Length <= 50, "Informe um nome com até 50 caracteres.");
         ApiError.Require(Nickname.IsValid(input.Nick), "Use um nick de 3 a 24 caracteres: letras sem acento, números, ponto, hífen ou sublinhado.");
-        ApiError.Require(input.Password is { Length: >= 12 and <= 128 }, "Use uma senha de 12 a 128 caracteres.");
+        ApiError.Require(input.Password is { Length: >= 6 and <= 128 }, "Use uma senha de 6 a 128 caracteres.");
         await using var transaction = await db.Database.BeginTransactionAsync();
         // Serialize bootstrap and invite consumption across API processes.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(849532001)");

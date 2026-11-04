@@ -32,7 +32,7 @@ builder.Services.AddIdentity<Organizer, IdentityRole>(options =>
 {
     options.User.RequireUniqueEmail = false;
     options.User.AllowedUserNameCharacters = Nickname.AllowedCharacters;
-    options.Password.RequiredLength = 12;
+    options.Password.RequiredLength = 6;
     options.Password.RequireDigit = false;
     options.Password.RequireLowercase = false;
     options.Password.RequireUppercase = false;

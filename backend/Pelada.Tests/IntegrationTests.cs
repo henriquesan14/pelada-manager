@@ -66,8 +66,9 @@ public sealed class IntegrationTests
         Assert.Equal(HttpStatusCode.Unauthorized,(await Request("actions",new{type="deleteRental",rentalId="any",revision=0})).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,(await Request("organizers")).StatusCode);
         Assert.True((await Json(await Request("session")))["needsSetup"]!.GetValue<bool>());
-        var registration = new { name = "Dono", nick = "rico10", password = "Synthetic-password-123", setupToken = Environment.GetEnvironmentVariable("SETUP_TOKEN") };
+        var registration = new { name = "Dono", nick = "rico10", password = "123456", setupToken = Environment.GetEnvironmentVariable("SETUP_TOKEN") };
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("register", registration, foreign: true)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Request("register", new { name = "Dono", nick = "rico10", password = "12345", setupToken = Environment.GetEnvironmentVariable("SETUP_TOKEN") })).StatusCode);
         var ownerResponse = await Request("register", registration);
         Assert.Equal(HttpStatusCode.OK, ownerResponse.StatusCode);
         var ownerCookie = Cookie(ownerResponse);
@@ -80,7 +81,7 @@ public sealed class IntegrationTests
         Assert.Equal(HttpStatusCode.Unauthorized, badLogin.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("login", new { nick = "owner@example.test", password = "Synthetic-password-123" })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("login", new { email = "owner@example.test", password = "Synthetic-password-123" })).StatusCode);
-        var login = await Request("login", new { nick = " RICO10 ", password = "Synthetic-password-123" });
+        var login = await Request("login", new { nick = " RICO10 ", password = "123456" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         ownerCookie = Cookie(login);
         // A fresh application/service provider must accept the existing cookie.

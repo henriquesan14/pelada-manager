@@ -36,7 +36,7 @@ docker compose up --build -d --wait
 
 O script cria `.env` com senha do banco e chave de configuração aleatórias. Se o arquivo já existir, ele é preservado. Alternativamente, copie `.env.example` para `.env` e preencha `POSTGRES_PASSWORD` e `SETUP_TOKEN` manualmente. Use uma senha aleatória sem ponto e vírgula para o banco e uma chave de pelo menos 24 caracteres para a configuração inicial. Não versione `.env`.
 
-Abra [http://localhost:8080](http://localhost:8080). Crie o primeiro responsável com nome, **nick**, senha pessoal de pelo menos 12 caracteres e a chave `SETUP_TOKEN` do seu `.env`. Depois, em **Organizadores**, gere os convites para os demais. O acesso é por **nick e senha**; e-mail não é solicitado.
+Abra [http://localhost:8080](http://localhost:8080). Crie o primeiro responsável com nome, **nick**, senha pessoal de pelo menos 6 caracteres (sem exigência de maiúsculas, números ou símbolos) e a chave `SETUP_TOKEN` do seu `.env`. Depois, em **Organizadores**, gere os convites para os demais. O acesso é por **nick e senha**; e-mail não é solicitado.
 
 O nick deve ter de 3 a 24 caracteres: letras sem acento, números, ponto, hífen ou sublinhado. Ele é único, não diferencia maiúsculas e minúsculas e é armazenado em minúsculas. O nome de exibição pode ser diferente do nick.
 

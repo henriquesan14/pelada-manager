@@ -24,7 +24,7 @@
               @if(authMode() !== 'login') {<label>Seu nome<input name="name" [(ngModel)]="auth.name" required maxlength="50" autocomplete="name"></label>}
               <label>Nick<input name="nick" [(ngModel)]="auth.nick" required minlength="3" maxlength="24" pattern="[a-zA-Z0-9_.\-]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Ex.: rico10"></label>
               @if(authMode() !== 'login') {<p>De 3 a 24 caracteres: letras sem acento, números, ponto, hífen ou sublinhado. Maiúsculas e minúsculas são equivalentes.</p>}
-              <label>Senha {{authMode() === 'login' ? '' : '(mínimo de 12 caracteres)'}}<input name="password" type="password" [(ngModel)]="auth.password" [minlength]="authMode() === 'login' ? 1 : 12" maxlength="128" required [autocomplete]="authMode() === 'login' ? 'current-password' : 'new-password'"></label>
+              <label>Senha {{authMode() === 'login' ? '' : '(mínimo de 6 caracteres)'}}<input name="password" type="password" [(ngModel)]="auth.password" [minlength]="authMode() === 'login' ? 1 : 6" maxlength="128" required [autocomplete]="authMode() === 'login' ? 'current-password' : 'new-password'"></label>
               @if(authMode() === 'setup') {<label>Chave de configuração<input name="setupToken" type="password" [(ngModel)]="auth.setupToken" required autocomplete="off"></label>}
               @if(authMode() === 'register') {<label>Código do convite<input name="invite" [(ngModel)]="auth.invite" required autocomplete="off"></label>}
               @if(authError()) {<p class="auth-error" role="alert">{{authError()}}</p>}
