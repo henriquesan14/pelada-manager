@@ -82,6 +82,8 @@ export class AppComponent {
   readonly selected = signal<string[]>([]);
   readonly organizers = signal<Organizer[]>([]);
   readonly activity = signal<Activity[]>([]);
+  readonly activityLoading = signal(false);
+  readonly hasMoreActivity = signal(false);
   readonly invitation = signal<Invitation | null>(null);
   readonly toastMessage = signal('');
   readonly authError = signal('');
@@ -332,9 +334,19 @@ export class AppComponent {
     if (confirm('Compartilhar os jogadores e resultados deste backup com todos os organizadores? O sorteio precisará ser refeito.'))
       await this.perform({type:'importLegacy',data}, 'Backup importado para a pelada compartilhada.');
   }
-  async loadOrganizers(): Promise<void> {
-    try { const result = await this.api.organizers(); if (this.user()) { this.organizers.set(result.organizers); this.activity.set(result.activity); } }
-    catch (error) { this.toast(this.errorMessage(error)); }
+  async loadOrganizers(more = false): Promise<void> {
+    if(this.activityLoading())return;
+    const before=more?this.activity().at(-1)?.id:undefined;
+    this.activityLoading.set(true);
+    try {
+      const result=await this.api.organizers(before);
+      if(this.user()) {
+        this.organizers.set(result.organizers);
+        this.activity.update(items=>more?[...items,...result.activity]:result.activity);
+        this.hasMoreActivity.set(result.hasMoreActivity);
+      }
+    } catch(error) {this.toast(this.errorMessage(error));}
+    finally {this.activityLoading.set(false);}
   }
   async createInvite(): Promise<void> {
     if (this.busy()) return; this.busy.set(true);

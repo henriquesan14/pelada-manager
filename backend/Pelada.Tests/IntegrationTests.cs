@@ -243,6 +243,32 @@ public sealed class IntegrationTests
         Assert.Equal(HttpStatusCode.OK, (await Request("revoke", new { id = otherId }, ownerCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: otherCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("login", new { nick = "outro", password = "Synthetic-password-123" })).StatusCode);
+        // Pagination must retain every action even when new actions arrive between pages.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PeladaDb>();
+            var actor = await db.Users.SingleAsync(u => u.IsOwner);
+            db.Activities.AddRange(Enumerable.Range(1, 35).Select(i => new Activity { ActorId = actor.Id, Action = $"Pagination {i}" }));
+            await db.SaveChangesAsync();
+        }
+        var firstPage = await Json(await Request("organizers", cookie: ownerCookie));
+        Assert.Equal(30, firstPage["activity"]!.AsArray().Count);
+        Assert.True(firstPage["hasMoreActivity"]!.GetValue<bool>());
+        var before = firstPage["activity"]!.AsArray().Last()!["id"]!.GetValue<long>();
+        Assert.Equal(HttpStatusCode.OK, (await Request("invites", new { }, ownerCookie)).StatusCode);
+        var seen = firstPage["activity"]!.AsArray().Select(a => a!["id"]!.GetValue<long>()).ToList();
+        var page = firstPage;
+        while (page["hasMoreActivity"]!.GetValue<bool>())
+        {
+            page = await Json(await Request($"organizers?before={before}", cookie: ownerCookie));
+            var idsPage = page["activity"]!.AsArray().Select(a => a!["id"]!.GetValue<long>()).ToList();
+            Assert.All(idsPage, id => Assert.True(id < before));
+            seen.AddRange(idsPage);
+            before = idsPage.Last();
+        }
+        Assert.Equal(seen.Count, seen.Distinct().Count());
+        await using (var scope = factory.Services.CreateAsyncScope())
+            Assert.Equal(await scope.ServiceProvider.GetRequiredService<PeladaDb>().Activities.CountAsync() - 1, seen.Count);
         Assert.Equal(HttpStatusCode.OK, (await Request("logout", new { }, ownerCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: ownerCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await Request("health")).StatusCode);

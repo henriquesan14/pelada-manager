@@ -97,12 +97,20 @@ public static class ApiEndpoints
             if(deletedLocation is not null) await PhotoEndpoints.Cleanup(objects, deletedLocation, logger);
             return Results.Ok(new { doc.Revision, State = state });
         });
-        authorized.MapGet("/organizers", async (PeladaDb db) => Results.Ok(new
+        authorized.MapGet("/organizers", async (PeladaDb db, long? before) =>
         {
-            Organizers = await db.Users.OrderBy(u => u.Name).Select(u => new { u.Id, u.Name, Nick = u.UserName,
-                Role = u.IsOwner ? "owner" : "organizer", Active = u.IsActive }).ToListAsync(),
-            Activity = await db.Activities.OrderByDescending(a => a.Id).Take(30).Select(a => new { a.Id, a.Action, a.Date, a.Actor.Name }).ToListAsync()
-        }));
+            var query = db.Activities.AsNoTracking().AsQueryable();
+            if (before.HasValue) query = query.Where(a => a.Id < before.Value);
+            var activity = await query.OrderByDescending(a => a.Id).Take(31)
+                .Select(a => new { a.Id, a.Action, a.Date, a.Actor.Name }).ToListAsync();
+            return Results.Ok(new
+            {
+                Organizers = await db.Users.OrderBy(u => u.Name).Select(u => new { u.Id, u.Name, Nick = u.UserName,
+                    Role = u.IsOwner ? "owner" : "organizer", Active = u.IsActive }).ToListAsync(),
+                Activity = activity.Take(30),
+                HasMoreActivity = activity.Count > 30
+            });
+        });
         authorized.MapPost("/invites", async (ClaimsPrincipal principal, UserManager<Organizer> users, PeladaDb db) =>
         {
             var user = await Current(principal, users);

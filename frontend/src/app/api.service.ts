@@ -24,6 +24,6 @@ export class ApiService {
     return firstValueFrom(this.http.post<Snapshot>(`/api/rentals/${encodeURIComponent(id)}/photo`,form,{withCredentials:true,headers:{'X-Resenha-Client':'1'}}).pipe(timeout(60000)));
   }
   invite = () => this.post<Invitation>('invites', {});
-  organizers = () => this.get<{organizers: Organizer[]; activity: Activity[]}>('organizers');
+  organizers = (before?: number) => this.get<{organizers: Organizer[]; activity: Activity[]; hasMoreActivity: boolean}>(`organizers${before === undefined ? '' : '?before=' + before}`);
   revoke = (id: string) => this.post('revoke', { id });
 }

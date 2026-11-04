@@ -11,6 +11,7 @@ import { emptyState } from './models';
 describe('acesso por nick', () => {
   async function setup(needsSetup: boolean) {
     const api = {
+      organizers: vi.fn(),
       session: vi.fn().mockResolvedValue({user:null,needsSetup,setupEnabled:true}),
       state: vi.fn().mockResolvedValue({revision:0,state:emptyState()}),
       login: vi.fn().mockResolvedValue({user:{id:'1',name:'Rico',nick:'rico10',role:'owner'}}),
@@ -43,6 +44,19 @@ describe('acesso por nick', () => {
     expect(fixture.nativeElement.textContent).toContain('Reconectando ao servidor');
     api.session.mockResolvedValueOnce({user:{id:'1',name:'Rico',nick:'rico10',role:'owner'},needsSetup:false,setupEnabled:true} as any);
     await app.refresh(true);expect(app.user()?.nick).toBe('rico10');expect(api.login).not.toHaveBeenCalled();fixture.destroy();
+  });
+  it('carrega ações antigas sem substituir as recentes e permite tentar novamente após falha',async()=>{
+    const {fixture,api}=await setup(false);const app=fixture.componentInstance;
+    await app.authenticate();
+    const recent={id:50,name:'Rico',action:'Sorteou times',date:'2026-11-04T12:00:00Z'};
+    const old={...recent,id:20,action:'Cadastrou jogador'};
+    api.organizers.mockResolvedValueOnce({organizers:[],activity:[recent],hasMoreActivity:true});
+    await app.loadOrganizers();expect(app.hasMoreActivity()).toBe(true);
+    api.organizers.mockRejectedValueOnce(new Error('offline'));
+    await app.loadOrganizers(true);expect(app.activity()).toEqual([recent]);expect(app.activityLoading()).toBe(false);
+    api.organizers.mockResolvedValueOnce({organizers:[],activity:[old],hasMoreActivity:false});
+    await app.loadOrganizers(true);expect(api.organizers).toHaveBeenLastCalledWith(50);
+    expect(app.activity()).toEqual([recent,old]);expect(app.hasMoreActivity()).toBe(false);fixture.destroy();
   });
   it('usa nick também no cadastro inicial', async () => {
     const {fixture,api}=await setup(true);
