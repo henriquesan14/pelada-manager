@@ -1,3 +1,4 @@
+import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { MobileInfiniteScrollDirective } from './mobile-infinite-scroll.directive';
 import { preparePhoto } from './photo';
 import { saoPauloToday, formatCalendarDate, formatRentalDate, formatSaoPauloDateTime } from './dates';
@@ -20,7 +21,7 @@ import { Activity, emptyState, Invitation, isGoalkeeper, isPlayerSuspended, rema
 import { RankingComponent } from './ranking.component';
 import { StarRatingComponent } from './star-rating.component';
 
-@Component({ selector: 'app-pelada', imports: [MobileInfiniteScrollDirective, FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'app-pelada', imports: [ResetPasswordDialogComponent, MobileInfiniteScrollDirective, FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
   readonly registrationDialog=viewChild<ElementRef<HTMLDialogElement>>('registrationDialog');
@@ -82,6 +83,8 @@ export class AppComponent {
   viewPlayerFees(id:string):void {this.feeDialogPlayerId.set(id);}
   readonly selected = signal<string[]>([]);
   readonly organizers = signal<Organizer[]>([]);
+  readonly passwordOrganizer = signal<Organizer|null>(null);
+  readonly passwordResetError = signal('');
   readonly activity = signal<Activity[]>([]);
   readonly activityLoading = signal(false);
   readonly activityError = signal(false);
@@ -133,7 +136,7 @@ export class AppComponent {
       onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});
     });
     const navigation = this.router.events.subscribe(event => {
-      if(event instanceof NavigationEnd){this.showMobileMenu.set(false);this.showRegistration.set(false);this.page.set(pageFromUrl(event.urlAfterRedirects));if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
+      if(event instanceof NavigationEnd){this.showMobileMenu.set(false);this.showRegistration.set(false);this.page.set(pageFromUrl(event.urlAfterRedirects));this.passwordOrganizer.set(null);if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
     });
     this.destroy.onDestroy(()=>navigation.unsubscribe());
     this.auth.invite = new URLSearchParams(location.hash.slice(1)).get('convite') || '';
@@ -166,7 +169,7 @@ export class AppComponent {
   }
   private clearSession(): void {
     this.user.set(null); this.snapshot.set({ revision: -1, state: emptyState() }); this.selected.set([]);
-    this.organizers.set([]); this.activity.set([]); this.invitation.set(null); this.connected.set(false);
+    this.passwordOrganizer.set(null);this.passwordResetError.set('');this.organizers.set([]); this.activity.set([]); this.invitation.set(null); this.connected.set(false);
     this.playerDialog()?.nativeElement.close(); this.authMode.set('login'); this.auth.password = ''; this.auth.setupToken = '';
     this.clearPhoto();this.winnerSelection='';this.goalkeeperSelection='';
   }
@@ -359,6 +362,21 @@ export class AppComponent {
   async copyInvite(): Promise<void> {
     try { await navigator.clipboard.writeText(this.invitationUrl()); this.toast('Link copiado!'); }
     catch { this.toast('Selecione o campo e copie o link do convite.'); }
+  }
+  openPasswordReset(organizer: Organizer): void {
+    if(this.user()?.role!=='owner'||organizer.role==='owner'||!organizer.active||this.busy())return;
+    this.passwordResetError.set('');this.passwordOrganizer.set(organizer);
+  }
+  async resetOrganizerPassword(password: string): Promise<void> {
+    const organizer=this.passwordOrganizer();
+    if(!organizer||this.user()?.role!=='owner'||this.busy())return;
+    this.busy.set(true);this.passwordResetError.set('');
+    try {
+      await this.api.resetOrganizerPassword(organizer.id,password);
+      this.passwordOrganizer.set(null);this.toast('Senha redefinida. O organizador deve entrar com a nova senha.');
+      await this.loadOrganizers();
+    } catch(error) {this.passwordResetError.set(this.errorMessage(error));}
+    finally {this.busy.set(false);}
   }
   async revoke(id: string): Promise<void> {
     if (this.busy() || !confirm('Remover o acesso deste organizador e encerrar suas sessões?')) return;

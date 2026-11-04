@@ -10,6 +10,7 @@ namespace Pelada.Api;
 public sealed record Registration(string? Name, string? Nick, string? Password, string? SetupToken, string? Invite);
 public sealed record Login(string? Nick, string? Password);
 public sealed record Revoke(string? Id);
+public sealed record ResetOrganizerPassword(string? Id, string? Password);
 
 public static class ApiEndpoints
 {
@@ -121,6 +122,24 @@ public static class ApiEndpoints
             AddActivity(db, user, "Criou um convite de organizador");
             await db.SaveChangesAsync();
             return Results.Ok(new { Invite = value, Expires = expires });
+        });
+        authorized.MapPost("/organizers/reset-password", async (ResetOrganizerPassword input, ClaimsPrincipal principal, UserManager<Organizer> users, PeladaDb db) =>
+        {
+            var owner = await Current(principal, users);
+            ApiError.Require(owner.IsOwner, "Apenas o responsável pode redefinir senhas.", 403);
+            ApiError.Require(input.Password is { Length: >= 6 and <= 128 }, "Use uma senha de 6 a 128 caracteres.");
+            var user = input.Id is null ? null : await users.FindByIdAsync(input.Id);
+            ApiError.Require(user is { IsActive: true, IsOwner: false }, "Organizador não encontrado.", 404);
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var token = await users.GeneratePasswordResetTokenAsync(user!);
+            var result = await users.ResetPasswordAsync(user!, token, input.Password!);
+            ApiError.Require(result.Succeeded, "Não foi possível redefinir a senha.", 409);
+            ApiError.Require((await users.ResetAccessFailedCountAsync(user!)).Succeeded, "Não foi possível redefinir a senha.", 409);
+            ApiError.Require((await users.SetLockoutEndDateAsync(user!, null)).Succeeded, "Não foi possível redefinir a senha.", 409);
+            AddActivity(db, owner, $"Redefiniu a senha de {user!.Name}");
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return Results.Ok(new { Ok = true });
         });
         authorized.MapPost("/revoke", async (Revoke input, ClaimsPrincipal principal, UserManager<Organizer> users, PeladaDb db) =>
         {

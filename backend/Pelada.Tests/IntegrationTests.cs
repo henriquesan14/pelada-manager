@@ -105,6 +105,23 @@ public sealed class IntegrationTests
         var otherId = (await Json(otherResponse))["user"]!["id"]!.GetValue<string>();
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("register", new { name = "Terceiro", nick = "terceiro", password = "Synthetic-password-123", invite })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("invites", new { }, otherCookie)).StatusCode);
+        var resetInput = new { id = otherId, password = "654321" };
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Request("organizers/reset-password", resetInput)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Request("organizers/reset-password", resetInput, otherCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Request("organizers/reset-password", new { id = otherId, password = "12345" }, ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Request("organizers/reset-password", new { id = ownerJson["user"]!["id"]!.GetValue<string>(), password = "654321" }, ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Request("organizers/reset-password", resetInput, ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: otherCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Request("login", new { nick = "outro", password = "Synthetic-password-123" })).StatusCode);
+        var resetLogin = await Request("login", new { nick = "outro", password = "654321" });
+        Assert.Equal(HttpStatusCode.OK, resetLogin.StatusCode);
+        otherCookie = Cookie(resetLogin);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var audit = await scope.ServiceProvider.GetRequiredService<PeladaDb>().Activities.OrderByDescending(a => a.Id).FirstAsync();
+            Assert.Equal("Redefiniu a senha de Outro", audit.Action);
+            Assert.DoesNotContain("654321", audit.Action);
+        }
         var writes = await Task.WhenAll(
             Request("actions", new { type = "addPlayer", revision = 0, name = "Ana", level = 4.5m, position = "Meia" }, ownerCookie),
             Request("actions", new { type = "addPlayer", revision = 0, name = "Beto", level = 3.5m, position = "Zagueiro" }, otherCookie));
@@ -242,6 +259,7 @@ public sealed class IntegrationTests
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("register", new { name = "Tarde", nick = "atrasado", password = "Synthetic-password-123", invite = expiredInvite })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("revoke", new { id = otherId }, otherCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await Request("revoke", new { id = otherId }, ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Request("organizers/reset-password", resetInput, ownerCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: otherCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("login", new { nick = "outro", password = "Synthetic-password-123" })).StatusCode);
         // Pagination must retain every action even when new actions arrive between pages.

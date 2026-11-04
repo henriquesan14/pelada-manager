@@ -64,3 +64,5 @@ nav .mobile-more{display:none}
 
 .activity-scroll-sentinel{height:1px}
 @media(max-width:650px){.activity-load-more{display:none}}
+
+.organizer-actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px}

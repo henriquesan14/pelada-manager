@@ -12,6 +12,7 @@ describe('acesso por nick', () => {
   async function setup(needsSetup: boolean) {
     const api = {
       organizers: vi.fn(),
+      resetOrganizerPassword: vi.fn(),
       session: vi.fn().mockResolvedValue({user:null,needsSetup,setupEnabled:true}),
       state: vi.fn().mockResolvedValue({revision:0,state:emptyState()}),
       login: vi.fn().mockResolvedValue({user:{id:'1',name:'Rico',nick:'rico10',role:'owner'}}),
@@ -57,6 +58,18 @@ describe('acesso por nick', () => {
     api.organizers.mockResolvedValueOnce({organizers:[],activity:[old],hasMoreActivity:false});
     await app.loadOrganizers(true);expect(api.organizers).toHaveBeenLastCalledWith(50);
     expect(app.activity()).toEqual([recent,old]);expect(app.hasMoreActivity()).toBe(false);fixture.destroy();
+  });
+  it('permite redefinir senha somente ao responsável e mantém o modal após falha',async()=>{
+    const {fixture,api}=await setup(false);const app=fixture.componentInstance;
+    const target={id:'2',name:'Outro',nick:'outro',role:'organizer' as const,active:true};
+    app.user.set({...target,id:'3'});app.openPasswordReset(target);expect(app.passwordOrganizer()).toBeNull();
+    await app.resetOrganizerPassword('654321');expect(api.resetOrganizerPassword).not.toHaveBeenCalled();
+    app.user.set({id:'1',name:'Rico',nick:'rico',role:'owner'});app.openPasswordReset(target);
+    api.resetOrganizerPassword.mockRejectedValueOnce(new Error('offline'));
+    await app.resetOrganizerPassword('654321');expect(app.passwordOrganizer()).toEqual(target);expect(app.passwordResetError()).not.toBe('');
+    api.resetOrganizerPassword.mockResolvedValueOnce({ok:true});api.organizers.mockResolvedValueOnce({organizers:[target],activity:[],hasMoreActivity:false});
+    await app.resetOrganizerPassword('654321');expect(api.resetOrganizerPassword).toHaveBeenLastCalledWith('2','654321');
+    expect(app.passwordOrganizer()).toBeNull();fixture.destroy();
   });
   it('usa nick também no cadastro inicial', async () => {
     const {fixture,api}=await setup(true);
