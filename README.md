@@ -120,7 +120,6 @@ backend/Pelada.Api/      API, Identity, regras de negócio e migrations
 backend/Pelada.Tests/    testes de domínio e integração
 frontend/               aplicação Angular e configuração do Nginx
 scripts/                inicialização da configuração local
-legacy/                 protótipo anterior, fora do build ativo
 compose.yaml            aplicação completa
 compose.dev.yaml        portas locais para desenvolvimento
 compose.test.yaml       PostgreSQL descartável para testes
@@ -139,11 +138,9 @@ dotnet ef migrations add NomeDaAlteracao --project backend/Pelada.Api
 
 As migrations são aplicadas na inicialização da API. Faça backup antes de atualizar uma instalação com dados. Não execute várias réplicas dessa versão sem planejar a aplicação coordenada de migrations e o compartilhamento das chaves de proteção.
 
-## Migração do protótipo anterior
+## Importação de backup
 
-A versão Node.js/SQLite foi preservada em `legacy/node/` e não participa do Compose. Nenhum banco anterior foi apagado ou convertido automaticamente.
-
-Exporte os dados esportivos antigos em JSON e, após criar o novo responsável, importe o arquivo na tela inicial enquanto a nova pelada estiver vazia. O sorteio deve ser refeito. Dados antigos em `localStorage` também são detectados se o endereço e o navegador forem os mesmos. Contas e senhas anteriores não são importadas: crie novos convites. Guarde o banco SQLite antigo antes de desativar a versão anterior.
+O responsável pode importar um backup esportivo em JSON na tela inicial enquanto a pelada estiver vazia. O sorteio deve ser refeito após a importação. Contas e senhas não fazem parte desse arquivo; use convites para cadastrar os organizadores. Para preservar também as contas e fotos armazenadas no banco, use o backup completo do PostgreSQL.
 
 ## Celular e hospedagem
 

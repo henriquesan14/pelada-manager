@@ -6,7 +6,6 @@
 .git
 .env
 .env.*
-legacy
 data
 keys
 .qa
