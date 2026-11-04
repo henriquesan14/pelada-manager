@@ -61,3 +61,6 @@ nav .mobile-more{display:none}
 .registration-dialog{max-height:90dvh;overflow-y:auto}.registration-dialog .section-heading{margin-bottom:22px}
 
 @media(max-width:1100px){.draw-layout.has-chosen-teams>.draw-results{order:-1}}
+
+.activity-scroll-sentinel{height:1px}
+@media(max-width:650px){.activity-load-more{display:none}}

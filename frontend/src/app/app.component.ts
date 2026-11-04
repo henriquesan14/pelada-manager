@@ -1,3 +1,4 @@
+import { MobileInfiniteScrollDirective } from './mobile-infinite-scroll.directive';
 import { preparePhoto } from './photo';
 import { saoPauloToday, formatCalendarDate, formatRentalDate, formatSaoPauloDateTime } from './dates';
 import { DrawShareDialogComponent } from './draw-share-dialog.component';
@@ -19,7 +20,7 @@ import { Activity, emptyState, Invitation, isGoalkeeper, isPlayerSuspended, rema
 import { RankingComponent } from './ranking.component';
 import { StarRatingComponent } from './star-rating.component';
 
-@Component({ selector: 'app-pelada', imports: [FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'app-pelada', imports: [MobileInfiniteScrollDirective, FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
   readonly registrationDialog=viewChild<ElementRef<HTMLDialogElement>>('registrationDialog');
@@ -83,6 +84,7 @@ export class AppComponent {
   readonly organizers = signal<Organizer[]>([]);
   readonly activity = signal<Activity[]>([]);
   readonly activityLoading = signal(false);
+  readonly activityError = signal(false);
   readonly hasMoreActivity = signal(false);
   readonly invitation = signal<Invitation | null>(null);
   readonly toastMessage = signal('');
@@ -337,7 +339,7 @@ export class AppComponent {
   async loadOrganizers(more = false): Promise<void> {
     if(this.activityLoading())return;
     const before=more?this.activity().at(-1)?.id:undefined;
-    this.activityLoading.set(true);
+    this.activityLoading.set(true);this.activityError.set(false);
     try {
       const result=await this.api.organizers(before);
       if(this.user()) {
@@ -345,7 +347,7 @@ export class AppComponent {
         this.activity.update(items=>more?[...items,...result.activity]:result.activity);
         this.hasMoreActivity.set(result.hasMoreActivity);
       }
-    } catch(error) {this.toast(this.errorMessage(error));}
+    } catch(error) {this.activityError.set(true);this.toast(this.errorMessage(error));}
     finally {this.activityLoading.set(false);}
   }
   async createInvite(): Promise<void> {
