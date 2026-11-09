@@ -7,7 +7,8 @@ function wrapName(context:CanvasRenderingContext2D,text:string,width:number):str
   lines.push(line);return lines;
 }
 export async function createDrawImages(options:DrawOption[],players:Player[]):Promise<DrawImage[]> {
-  const names=new Map(players.map(player=>[player.id,player.name]));
+  const playersById = new Map(players.map(player => [player.id, player]));
+  const stars = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
   let logo:HTMLImageElement|null=null;
   try {logo=new Image();logo.src='/caps-fc-logo.png';await logo.decode();}catch{logo=null;}
   const images:DrawImage[]=[];
@@ -15,9 +16,19 @@ export async function createDrawImages(options:DrawOption[],players:Player[]):Pr
     const canvas=document.createElement('canvas');canvas.width=1080;
     const context=canvas.getContext('2d');if(!context)throw new Error('Canvas indisponível');
     context.font='24px Arial';
-    const teams=option.teams.map(team=>({team,lines:team.players.map(id=>wrapName(context,names.get(id)||'Jogador removido',422))}));
+    const teams = option.teams.map(team => {
+      const roster = team.players.map(id => playersById.get(id));
+      const total = roster.every(player => player !== undefined)
+        ? roster.reduce((sum, player) => sum + (player?.level ?? 0), 0)
+        : team.strength;
+      const rows = roster.map(player => ({
+        lines: wrapName(context, player?.name || 'Jogador removido', 328),
+        rating: player ? `${stars.format(player.level)} ★` : '—'
+      }));
+      return { team, rows, total };
+    });
     const rowHeights:number[]=[];
-    for(let i=0;i<teams.length;i+=2)rowHeights.push(Math.max(...teams.slice(i,i+2).map(item=>100+item.lines.reduce((sum,lines)=>sum+lines.length*32+16,0))));
+    for(let i=0;i<teams.length;i+=2)rowHeights.push(Math.max(...teams.slice(i,i+2).map(item=>124+item.rows.reduce((sum,row)=>sum+row.lines.length*32+16,0))));
     canvas.height=240+rowHeights.reduce((sum,height)=>sum+height+24,0)+80;
     context.fillStyle='#f3f5f9';context.fillRect(0,0,1080,canvas.height);
     context.fillStyle='#071b35';context.fillRect(0,0,1080,200);
@@ -31,10 +42,25 @@ export async function createDrawImages(options:DrawOption[],players:Player[]):Pr
       for(let j=i;j<Math.min(i+2,teams.length);j++){
         const item=teams[j];const x=48+(j%2)*504;
         context.fillStyle='#ffffff';context.fillRect(x,y,480,rowHeights[i/2]);
-        context.fillStyle=colors[j%colors.length];context.fillRect(x,y,480,64);
-        context.fillStyle='#ffffff';context.font='bold 28px Arial';context.fillText(item.team.name,x+24,y+42,432);
-        let lineY=y+104;context.font='24px Arial';context.fillStyle='#172b47';
-        for(const lines of item.lines){for(const line of lines){context.fillText(line,x+24,lineY);lineY+=32;}lineY+=16;}
+        context.fillStyle=colors[j%colors.length];context.fillRect(x,y,480,88);
+        context.fillStyle='#ffffff';context.font='bold 28px Arial';context.fillText(item.team.name,x+24,y+36,432);
+        context.font = 'bold 22px Arial';
+        context.fillText(`Total: ${stars.format(item.total)} ★`, x+24, y+67, 432);
+        let lineY = y+128;
+        for (const row of item.rows) {
+          context.textAlign = 'right';
+          context.font = 'bold 24px Arial';
+          context.fillStyle = '#805800';
+          context.fillText(row.rating, x+456, lineY, 88);
+          context.textAlign = 'left';
+          context.font = '24px Arial';
+          context.fillStyle = '#172b47';
+          for (const line of row.lines) {
+            context.fillText(line, x+24, lineY);
+            lineY += 32;
+          }
+          lineY += 16;
+        }
       }
       y+=rowHeights[i/2]+24;
     }
