@@ -127,12 +127,13 @@ public static partial class PeladaRules
                 ApiError.Require(ValidName(input.Name), "Informe um nome com até 50 caracteres.");
                 ApiError.Require(ValidLevel(input.Level), "Escolha de 0,5 a 5 estrelas, em passos de 0,5.");
                 ApiError.Require(ValidPosition(input.Position), "Escolha a posição do jogador.");
-                var addedPlayer = new Player(Id(), input.Name!.Trim(), input.Level, input.Position);
+                var name = input.Name!.Trim().ToUpperInvariant();
+                var addedPlayer = new Player(Id(), name, input.Level, input.Position);
                 state.Players.Add(addedPlayer);
                 var currentMonth=CurrentMonth();
                 foreach(var fees in state.MonthlyFees.Where(f=>string.CompareOrdinal(f.Month,currentMonth)>=0))
                     fees.Charges.Add(new MonthlyFeeCharge(addedPlayer.Id,addedPlayer.Name));
-                return $"Cadastrou {input.Name.Trim()}";
+                return $"Cadastrou {name}";
             case "suspendPlayer":
             {
                 var index=state.Players.FindIndex(p=>p.Id==input.Id);
