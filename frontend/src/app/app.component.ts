@@ -1,3 +1,4 @@
+import { ManualRentalDialogComponent, ManualRentalInput } from './manual-rental-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { MobileInfiniteScrollDirective } from './mobile-infinite-scroll.directive';
 import { preparePhoto } from './photo';
@@ -21,11 +22,13 @@ import { Activity, emptyState, Invitation, isGoalkeeper, isPlayerSuspended, rema
 import { RankingComponent } from './ranking.component';
 import { StarRatingComponent } from './star-rating.component';
 
-@Component({ selector: 'app-pelada', imports: [ResetPasswordDialogComponent, MobileInfiniteScrollDirective, FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'app-pelada', imports: [ManualRentalDialogComponent, ResetPasswordDialogComponent, MobileInfiniteScrollDirective, FormsModule, NgTemplateOutlet, RankingComponent, StarRatingComponent, RouterLink, PlayerAutocompleteComponent, GroupRulesComponent, MonthlyFeesComponent, CashFlowComponent, PlayerFeesDialogComponent, PlayerSuspensionDialogComponent, DrawShareDialogComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   private readonly api = inject(ApiService);
   readonly registrationDialog=viewChild<ElementRef<HTMLDialogElement>>('registrationDialog');
   readonly showRegistration=signal(false);
+  readonly showManualRental = signal(false);
+  readonly manualRentalError = signal('');
   private readonly destroy = inject(DestroyRef);
   private readonly updates = inject(SwUpdate);
   private readonly router = inject(Router);
@@ -136,7 +139,7 @@ export class AppComponent {
       onCleanup(()=>{if(dialog.open)dialog.close();document.body.style.overflow=overflow;});
     });
     const navigation = this.router.events.subscribe(event => {
-      if(event instanceof NavigationEnd){this.showMobileMenu.set(false);this.showRegistration.set(false);this.page.set(pageFromUrl(event.urlAfterRedirects));this.passwordOrganizer.set(null);if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
+      if(event instanceof NavigationEnd){this.showMobileMenu.set(false);this.showRegistration.set(false);this.showManualRental.set(false);this.page.set(pageFromUrl(event.urlAfterRedirects));this.passwordOrganizer.set(null);if(this.page()==='organizadores'&&this.user())void this.loadOrganizers();if(!this.user()&&this.isPublicPage()&&!this.loading())void this.refresh(true);}
     });
     this.destroy.onDestroy(()=>navigation.unsubscribe());
     this.auth.invite = new URLSearchParams(location.hash.slice(1)).get('convite') || '';
@@ -168,6 +171,7 @@ export class AppComponent {
     return 'Conexão interrompida. Confira os dados ao reconectar antes de tentar novamente.';
   }
   private clearSession(): void {
+    this.showManualRental.set(false);
     this.user.set(null); this.snapshot.set({ revision: -1, state: emptyState() }); this.selected.set([]);
     this.passwordOrganizer.set(null);this.passwordResetError.set('');this.organizers.set([]); this.activity.set([]); this.invitation.set(null); this.connected.set(false);
     this.playerDialog()?.nativeElement.close(); this.authMode.set('login'); this.auth.password = ''; this.auth.setupToken = '';
@@ -267,6 +271,21 @@ export class AppComponent {
     if(rental.cancelledAt)return 'Pelada cancelada · ninguém conquista aluguel';
     if(!rental.finishedAt)return 'Em andamento';
     return rental.winnerTeamId?`${rental.teams.find(t=>t.id===rental.winnerTeamId)?.name} vencedor · 1 aluguel por jogador`:'Sem vencedor · ninguém conquista aluguel';
+  }
+  openManualRental(): void {
+    this.manualRentalError.set('');
+    this.showManualRental.set(true);
+  }
+  async addManualRental(input: ManualRentalInput): Promise<void> {
+    if (this.user()?.role !== 'owner' || this.busy()) return;
+    this.manualRentalError.set('');
+    if (await this.perform({type: 'addManualRental', ...input}, 'Aluguel salvo.')) {
+      this.showManualRental.set(false);
+      const rental = this.state().rentals.at(-1);
+      if (rental) this.selectRental(rental.id);
+    } else {
+      this.manualRentalError.set(this.toastMessage());
+    }
   }
   async startRental(): Promise<void> {
     if(await this.perform({type:'startRental',name:this.rentalName.trim(),playedOn:this.rentalDate,location:this.rentalLocation.trim() || null},'Pelada cadastrada com os times e o dia escolhido.')){

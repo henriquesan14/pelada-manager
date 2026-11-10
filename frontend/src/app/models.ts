@@ -7,7 +7,7 @@ export function isGoalkeeper(player: Player): boolean { return /\(GL\)$/i.test(p
 export interface Team { id: string; name: string; players: string[]; strength: number; }
 export interface DrawOption { id: string; number: number; teams: Team[]; }
 export interface Match { id: string; date: string; a: string[]; b: string[]; nameA: string; nameB: string; scoreA: number; scoreB: number; createdBy?: string; createdByName?: string; rentalId?: string | null; teamAId?: string | null; teamBId?: string | null; }
-export interface Rental { isHistorical?: boolean; participantsText?: string | null; sourcePhotoUrl?: string | null; importSourceId?: string | null; id: string; name: string; createdAt: string; playedOn?: string | null; location?: string | null; teams: Team[]; finishedAt?: string | null; cancelledAt?: string | null; winnerTeamId?: string | null; winningGoalkeeperId?: string | null; photoId?: string | null; }
+export interface Rental { isManual?: boolean; isHistorical?: boolean; participantsText?: string | null; sourcePhotoUrl?: string | null; importSourceId?: string | null; id: string; name: string; createdAt: string; playedOn?: string | null; location?: string | null; teams: Team[]; finishedAt?: string | null; cancelledAt?: string | null; winnerTeamId?: string | null; winningGoalkeeperId?: string | null; photoId?: string | null; }
 export interface MonthlyFeeCharge { importedPaid?: boolean; importSourceCell?: string | null; importedAt?: string | null; playerId: string; playerName: string; paidAt?: string | null; recordedBy?: string | null; recordedByName?: string | null; }
 export function isMonthlyFeePaid(charge: MonthlyFeeCharge): boolean { return !!charge.paidAt || !!charge.importedPaid; }
 export interface MonthlyFeeMonth { month: string; amount: number; charges: MonthlyFeeCharge[]; }
@@ -41,7 +41,7 @@ export function ranking(players: Player[], rentals: Rental[]): RankingRow[] {
 
 export function remainingSuspensionRentals(player:Player,rentals:Rental[]):number {
   const suspension=player.suspension;
-  return suspension?.rentalCount ? Math.max(0,suspension.rentalCount-rentals.filter(r=>!r.isHistorical&&!r.cancelledAt&&Date.parse(r.createdAt)>=Date.parse(suspension.startedAt)).length):0;
+  return suspension?.rentalCount ? Math.max(0,suspension.rentalCount-rentals.filter(r=>!r.isHistorical&&!r.isManual&&!r.cancelledAt&&Date.parse(r.createdAt)>=Date.parse(suspension.startedAt)).length):0;
 }
 export function isPlayerSuspended(player:Player,rentals:Rental[],today=saoPauloToday()):boolean {
   return player.suspension?.until ? today<=player.suspension.until : remainingSuspensionRentals(player,rentals)>0;

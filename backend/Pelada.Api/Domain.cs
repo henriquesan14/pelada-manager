@@ -28,7 +28,7 @@ public sealed record Match(string Id, DateTimeOffset Date, List<string> A, List<
 public sealed record Rental(string Id, string Name, DateTimeOffset CreatedAt, List<Team> Teams,
     DateTimeOffset? FinishedAt = null, string? WinnerTeamId = null, string? PhotoId = null, DateOnly? PlayedOn = null,
     DateTimeOffset? CancelledAt = null, string? Location = null, string? WinningGoalkeeperId = null,
-    bool IsHistorical = false, string? ParticipantsText = null, string? ImportSourceId = null, string? SourcePhotoUrl = null);
+    bool IsHistorical = false, string? ParticipantsText = null, string? ImportSourceId = null, string? SourcePhotoUrl = null, bool IsManual = false);
 public sealed class PeladaState
 {
     public List<Player> Players { get; set; } = [];
@@ -76,7 +76,7 @@ public static partial class PeladaRules
 {
     public static bool IsGoalkeeper(Player player) => player.Name.TrimEnd().EndsWith("(GL)", StringComparison.OrdinalIgnoreCase) || player.Position == "Goleiro";
     public static int RemainingSuspensionRentals(Player player, PeladaState state) => player.Suspension?.RentalCount is int count
-        ? Math.Max(0,count-state.Rentals.Count(r=>!r.IsHistorical && r.CancelledAt is null && r.CreatedAt>=player.Suspension.StartedAt)) : 0;
+        ? Math.Max(0,count-state.Rentals.Count(r=>!r.IsHistorical && !r.IsManual && r.CancelledAt is null && r.CreatedAt>=player.Suspension.StartedAt)) : 0;
     public static bool IsSuspended(Player player, PeladaState state, DateOnly? date = null)
     {
         var suspension=player.Suspension;if(suspension is null)return false;
@@ -290,6 +290,26 @@ public static partial class PeladaRules
                 state.DrawOptions = [];state.SelectedDrawOptionId = null;
                 return $"Cadastrou a pelada {input.Name.Trim()} para {input.PlayedOn:dd/MM/yyyy}";
             }
+            case "addManualRental":
+            {
+                ApiError.Require(owner, "Apenas o responsável pode cadastrar um aluguel manualmente.", 403);
+                ApiError.Require(state.Rentals.Count < 1000, "Limite de mil aluguéis atingido.");
+                ApiError.Require(ValidName(input.Name), "Informe um nome para o aluguel com até 50 caracteres.");
+                ApiError.Require(input.PlayedOn is not null && input.PlayedOn != DateOnly.MinValue, "Informe o dia da pelada.");
+                ApiError.Require(input.Location is null || input.Location.Trim().Length <= 120, "Informe um local com até 120 caracteres.");
+                ApiError.Require(input.Players is { Count: > 0 and <= 500 }, "Selecione os jogadores vencedores.");
+                var playerIds = input.Players!.ToHashSet();
+                var winners = state.Players.Where(player => playerIds.Contains(player.Id)).ToList();
+                ApiError.Require(winners.Count == input.Players!.Count, "Seleção de jogadores inválida.");
+                ApiError.Require(input.WinningGoalkeeperId is null || state.Players.Any(p => p.Id == input.WinningGoalkeeperId),
+                    "Selecione um goleiro cadastrado.");
+                var team = new Team(Id(), "Time vencedor", winners.Select(p => p.Id).ToList(), winners.Sum(p => p.Level));
+                var now = DateTimeOffset.UtcNow;
+                state.Rentals.Add(new Rental(Id(), input.Name!.Trim(), now, [team], FinishedAt: now, WinnerTeamId: team.Id,
+                    PlayedOn: input.PlayedOn, Location: input.Location?.Trim(), WinningGoalkeeperId: input.WinningGoalkeeperId,
+                    IsManual: true));
+                return $"Cadastrou manualmente o aluguel {input.Name.Trim()}";
+            }
             case "finishRental":
             {
                 var index = state.Rentals.FindIndex(r => r.Id == input.RentalId);
@@ -335,6 +355,7 @@ public static partial class PeladaRules
                 var rental = state.Rentals[index];
                 ApiError.Require(rental.CancelledAt is null, "Uma pelada cancelada não pode ter o vencedor corrigido.");
                 ApiError.Require(!rental.IsHistorical, "Este registro histórico não possui times ou vencedor identificado.");
+                ApiError.Require(!rental.IsManual, "Este aluguel manual não possui outros times para escolher.");
                 state.Rentals[index] = rental with { FinishedAt = null, WinnerTeamId = null, WinningGoalkeeperId = null };
                 state.Teams = rental.Teams.Select(t => t with { Players = [..t.Players] }).ToList();
                 return $"Reabriu {rental.Name} e retirou as conquistas individuais até a correção do vencedor";
@@ -386,7 +407,9 @@ public static partial class PeladaRules
         ApiError.Require(data.Rentals is { Count: <= 1000 }, "Aluguéis inválidos.");
         ApiError.Require(data.Rentals!.All(r => r is not null && ValidId(r.Id) && ValidName(r.Name) && r.CreatedAt != default &&
             (r.Location is null || r.Location.Length <= 120) &&
-            (r.IsHistorical ? r.Teams is {Count: 0} && r.FinishedAt is not null && r.WinnerTeamId is null && r.WinningGoalkeeperId is null : r.Teams is { Count: >= 2 and <= 6 }) &&
+            (r.IsManual ? !r.IsHistorical && r.Teams is { Count: 1 } && r.FinishedAt is not null &&
+                r.CancelledAt is null && r.WinnerTeamId is not null && r.WinnerTeamId == r.Teams[0]?.Id :
+                r.IsHistorical ? r.Teams is {Count: 0} && r.FinishedAt is not null && r.WinnerTeamId is null && r.WinningGoalkeeperId is null : r.Teams is { Count: >= 2 and <= 6 }) &&
             (r.ParticipantsText is null || r.ParticipantsText.Length <= 20000) &&
             (r.SourcePhotoUrl is null || (Uri.TryCreate(r.SourcePhotoUrl, UriKind.Absolute, out var photoUri) && photoUri.Scheme == "https")) &&
             r.Teams.All(t => t is not null && ValidId(t.Id) && ValidName(t.Name) &&

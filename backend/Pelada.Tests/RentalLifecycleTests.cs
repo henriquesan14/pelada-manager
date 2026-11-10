@@ -75,6 +75,31 @@ public sealed class RentalLifecycleTests
     }
 
     [Fact]
+    public void ManualRentalRequiresOwnerAndRecordsWinnersWithoutConsumingTheDraw()
+    {
+        var state = State();
+        var draft = state.Teams;
+        var input = new ActionRequest { Type = "addManualRental", Name = "Pelada", PlayedOn = new DateOnly(2026, 11, 2),
+            Players = ["p1", "p2"], WinningGoalkeeperId = "p2" };
+
+        Assert.Equal(403, Assert.Throws<ApiError>(() => PeladaRules.Apply(state, input, "u", "Organizador", false)).Status);
+        Assert.Empty(state.Rentals);
+        Act(state, input);
+
+        var rental = Assert.Single(state.Rentals);
+        Assert.True(rental.IsManual);
+        Assert.NotNull(rental.FinishedAt);
+        Assert.Equal(rental.WinnerTeamId, Assert.Single(rental.Teams).Id);
+        Assert.Equal(new[] { "p1", "p2" }, rental.Teams[0].Players);
+        Assert.Equal("p2", rental.WinningGoalkeeperId);
+        Assert.Same(draft, state.Teams);
+        Assert.Throws<ApiError>(() => Act(state, new() { Type = "reopenRental", RentalId = rental.Id }));
+        var copy = new PeladaState();
+        Act(copy, new() { Type = "importLegacy", Data = state });
+        Assert.True(Assert.Single(copy.Rentals).IsManual);
+    }
+
+    [Fact]
     public void SelectedGoalkeepersCanPlayInTheDrawAndWinnerMustExist()
     {
         var state=State();state.Players.Add(new("g1","TARCIO (GL)",5));state.Players.Add(new("g2","Veto (gl) ",4));
