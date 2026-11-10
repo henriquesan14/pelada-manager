@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { MonthlyFeesComponent } from './monthly-fees.component';
 import { MonthlyFeeMonth } from './models';
+import { saoPauloToday } from './dates';
 
 const ledger:MonthlyFeeMonth={month:'2026-10',amount:10,charges:[
   {playerId:'a',playerName:'Ana',paidAt:'2026-10-10T12:00:00Z',recordedBy:'u',recordedByName:'Organizador'},
@@ -31,6 +32,21 @@ describe('mensalidades de dez reais',()=>{
     fixture.componentRef.setInput('months',[ledger]);app.month.set('2026-10');app.search.set('joao');app.status.set('pending');fixture.detectChanges();
     expect(app.visibleCharges().map(c=>c.playerId)).toEqual(['b']);expect(app.expected()).toBe(20);
     app.status.set('paid');expect(app.visibleCharges()).toEqual([]);fixture.destroy();
+  });
+  it('lista apenas jogadores cadastrados no mês atual e mantém os registros e pagamentos antigos', () => {
+    const fixture = TestBed.createComponent(MonthlyFeesComponent);
+    const app = fixture.componentInstance;
+    const currentMonth = saoPauloToday().slice(0, 7);
+    const pastMonth = '2025-01';
+    fixture.componentRef.setInput('players', [{id: 'b', name: 'João (GL)', level: 3}]);
+    fixture.componentRef.setInput('months', [{...ledger, month: currentMonth}, {...ledger, month: pastMonth}]);
+    fixture.detectChanges();
+
+    expect(app.visibleCharges().map(charge => charge.playerId)).toEqual(['b']);
+    expect(app.received()).toBe(10);
+    app.month.set(pastMonth);
+    expect(app.visibleCharges().map(charge => charge.playerId)).toEqual(['a', 'b']);
+    fixture.destroy();
   });
   it('conta pagamento importado sem mostrar uma coluna de data',()=>{
     const fixture=TestBed.createComponent(MonthlyFeesComponent);const app=fixture.componentInstance;

@@ -1,7 +1,7 @@
 import { saoPauloToday } from './dates';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { isMonthlyFeePaid, MonthlyFeeMonth } from './models';
+import { isMonthlyFeePaid, MonthlyFeeMonth, Player } from './models';
 
 export interface FeePaymentChange {month:string;playerId:string;playerName:string;paid:boolean;}
 @Component({
@@ -21,6 +21,7 @@ export class MonthlyFeesComponent {
   readonly isPaid=isMonthlyFeePaid;
   money(value:number):string {return value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
   readonly months=input<MonthlyFeeMonth[]>([]);
+  readonly players=input<Player[]>([]);
   readonly readOnly=input(false);
   readonly busy=input(false);
   readonly openMonth=output<string>();
@@ -35,7 +36,10 @@ export class MonthlyFeesComponent {
   readonly visibleCharges=computed(()=>{
     const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
     const term=normalize(this.search().trim());
-    return [...this.current()?.charges||[]].filter(c=>normalize(c.playerName).includes(term)&&
+    const isPastMonth = this.month() < saoPauloToday().slice(0, 7);
+    const registeredIds = new Set(this.players().map(player => player.id));
+    return [...this.current()?.charges||[]].filter(c=>(isPastMonth || registeredIds.has(c.playerId)) &&
+      normalize(c.playerName).includes(term)&&
       (this.status()==='all'||(this.status()==='paid')===isMonthlyFeePaid(c))).sort((a,b)=>a.playerName.localeCompare(b.playerName,'pt-BR'));
   });
 }
