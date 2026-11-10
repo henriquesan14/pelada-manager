@@ -247,6 +247,13 @@ export class AppComponent {
     if(await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.sortedPlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount)}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.'))
       window.scrollTo({top:0,left:0,behavior:'smooth'});
   }
+  async cancelDrawOptions(): Promise<void> {
+    if (this.busy() || !confirm('Cancelar os sorteios gerados e a escolha da enquete?')) return;
+    if (await this.perform({type: 'cancelDrawOptions'}, 'Sorteios cancelados.')) {
+      this.showRegistration.set(false);
+      this.showDrawShare.set(false);
+    }
+  }
   async chooseDrawOption(id: string): Promise<void> {
     if(await this.perform({type:'selectDrawOption',id}, 'Sorteio vencedor escolhido. Agora cadastre a pelada.'))
       this.showRegistration.set(!this.activeRental());

@@ -56,6 +56,25 @@ public sealed class RentalLifecycleTests
         Assert.Throws<ApiError>(()=>Act(state,new(){Type="generateDrawOptions",Players=["p1","p2"],Count=3}));
     }
     [Fact]
+    public void CancellingDrawOptionsKeepsTheRegisteredRental()
+    {
+        var state = State();
+        Start(state, false);
+        var registered = state.Rentals.Single();
+        Act(state, new() { Type = "generateDrawOptions", Players = ["p1", "p2", "p3"], Count = 3 });
+        var optionId = state.DrawOptions[0].Id;
+        Act(state, new() { Type = "selectDrawOption", Id = optionId });
+
+        Act(state, new() { Type = "cancelDrawOptions" });
+
+        Assert.Empty(state.DrawOptions);
+        Assert.Empty(state.Teams);
+        Assert.Null(state.SelectedDrawOptionId);
+        Assert.Same(registered, state.Rentals.Single());
+        Assert.Throws<ApiError>(() => Act(state, new() { Type = "selectDrawOption", Id = optionId }));
+    }
+
+    [Fact]
     public void SelectedGoalkeepersCanPlayInTheDrawAndWinnerMustExist()
     {
         var state=State();state.Players.Add(new("g1","TARCIO (GL)",5));state.Players.Add(new("g2","Veto (gl) ",4));

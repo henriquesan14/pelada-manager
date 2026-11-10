@@ -245,6 +245,14 @@ public static partial class PeladaRules
                 state.DrawOptions = options; state.SelectedDrawOptionId = null; state.Teams = [];
                 return "Gerou 3 opções de sorteio para votação no WhatsApp";
             }
+            case "cancelDrawOptions":
+            {
+                ApiError.Require(state.DrawOptions.Count > 0, "Não há sorteios para cancelar.");
+                state.DrawOptions = [];
+                state.SelectedDrawOptionId = null;
+                state.Teams = [];
+                return "Cancelou as opções de sorteio";
+            }
             case "selectDrawOption":
             {
                 var option = state.DrawOptions.Find(o => o.Id == input.Id);
