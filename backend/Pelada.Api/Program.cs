@@ -46,8 +46,15 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
     options.Cookie.SecurePolicy = publicUri.Scheme == "https" ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
-    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+    options.ExpireTimeSpan = TimeSpan.FromDays(365);
     options.SlidingExpiration = true;
+    options.Events.OnValidatePrincipal = async context =>
+    {
+        await SecurityStampValidator.ValidatePrincipalAsync(context);
+        // Apply the current lifetime when renewing cookies issued under an older policy.
+        if (context.Principal is not null && context.ShouldRenew && context.Properties.IssuedUtc is { } issued)
+            context.Properties.ExpiresUtc = issued + context.Options.ExpireTimeSpan;
+    };
     options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return context.Response.WriteAsJsonAsync(new { Error = "Entre na sua conta para continuar." }); };
     options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return context.Response.WriteAsJsonAsync(new { Error = "Acesso negado." }); };
 });

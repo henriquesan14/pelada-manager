@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Pelada.Api;
 using Xunit;
 
@@ -96,16 +97,23 @@ public sealed class IntegrationTests
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         ownerCookie = Cookie(login);
 
+        var cookieOptions = factory.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(IdentityConstants.ApplicationScheme);
+        var cookiePrefix = cookieOptions.Cookie.Name + "=";
+        var previousTicket = cookieOptions.TicketDataFormat.Unprotect(ownerCookie[cookiePrefix.Length..])!;
+        previousTicket.Properties.ExpiresUtc = previousTicket.Properties.IssuedUtc!.Value.AddDays(7);
+        var previousCookie = cookiePrefix + cookieOptions.TicketDataFormat.Protect(previousTicket);
+
         sessionClock.Offset = TimeSpan.FromDays(1);
-        using var renewedSession = await Request("state", cookie: ownerCookie);
+        using var renewedSession = await Request("state", cookie: previousCookie);
         Assert.Equal(HttpStatusCode.OK, renewedSession.StatusCode);
         var renewedCookie = Cookie(renewedSession);
 
-        sessionClock.Offset = TimeSpan.FromDays(7.5);
+        sessionClock.Offset = TimeSpan.FromDays(365.5);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: ownerCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await Request("state", cookie: renewedCookie)).StatusCode);
 
-        sessionClock.Offset = TimeSpan.FromDays(8.5);
+        sessionClock.Offset = TimeSpan.FromDays(366.5);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: renewedCookie)).StatusCode);
         sessionClock.Offset = TimeSpan.Zero;
 

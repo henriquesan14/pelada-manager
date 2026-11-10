@@ -1,6 +1,6 @@
 # Sessões de login
 
-O login usa cookie persistente HttpOnly e renova o prazo de sete dias a cada requisição autenticada. Após sete dias sem uso, é preciso entrar novamente. Fechar e abrir o navegador não encerra a sessão quando os cookies são preservados. Sair da conta ou revogar o organizador invalida suas sessões.
+O login usa cookie persistente HttpOnly e renova o prazo de 365 dias a cada requisição autenticada. Após 365 dias sem uso, é preciso entrar novamente. Fechar e abrir o navegador não encerra a sessão quando os cookies são preservados. Sair da conta ou revogar o organizador invalida suas sessões.
 
 As chaves de proteção dos cookies ficam na tabela **DataProtectionKeys** do mesmo PostgreSQL das contas. Uma nova instância da API reutiliza essas chaves, mantendo os logins após reinícios e publicações. A migration cria somente essa tabela; não altera contas, senhas ou dados da pelada.
 

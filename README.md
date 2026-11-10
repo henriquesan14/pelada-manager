@@ -107,7 +107,7 @@ O banco de teste usa `tmpfs`, sem volume persistente, não expõe portas e não 
 - A foto e os times ficam disponíveis no histórico. A imagem pode ser substituída posteriormente sem alterar os pontos. Para corrigir o vencedor, reabra o aluguel: os pontos anteriores são retirados até salvar o resultado correto. Não é possível reabrir outro aluguel enquanto houver um em andamento.
 - Os totais individuais são calculados a partir dos resultados salvos; salvar novamente, atualizar a página ou consultar o ranking não duplica pontos. Cada aluguel mantém seus times e resultado independentes.
 - Jogadores participantes não podem ser excluídos e os times não podem ser sorteados novamente enquanto a pelada aguarda seu resultado.
-- Contas individuais e sessão renovável de 7 dias. O responsável cria convites de uso único, válidos por 24 horas, e remove acessos.
+- Contas individuais e sessão renovável de 365 dias. O responsável cria convites de uso único, válidos por 24 horas, e remove acessos.
 - Atualização dos dados a cada 5 segundos enquanto o app estiver visível. Ao editar um formulário, a atualização visual é adiada para preservar o preenchimento.
 - Controle otimista de revisão: se outro organizador gravar antes, a alteração com revisão antiga é recusada. O app busca os novos dados e o organizador deve revisar e tentar novamente.
 - Histórico das 30 atividades mais recentes.
