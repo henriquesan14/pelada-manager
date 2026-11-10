@@ -75,16 +75,14 @@ public sealed class RentalLifecycleTests
     }
 
     [Fact]
-    public void ManualRentalRequiresOwnerAndRecordsWinnersWithoutConsumingTheDraw()
+    public void OrganizerCanRecordManualWinnersWithoutConsumingTheDraw()
     {
         var state = State();
         var draft = state.Teams;
         var input = new ActionRequest { Type = "addManualRental", Name = "Pelada", PlayedOn = new DateOnly(2026, 11, 2),
             Players = ["p1", "p2"], WinningGoalkeeperId = "p2" };
 
-        Assert.Equal(403, Assert.Throws<ApiError>(() => PeladaRules.Apply(state, input, "u", "Organizador", false)).Status);
-        Assert.Empty(state.Rentals);
-        Act(state, input);
+        PeladaRules.Apply(state, input, "u", "Organizador", false);
 
         var rental = Assert.Single(state.Rentals);
         Assert.True(rental.IsManual);

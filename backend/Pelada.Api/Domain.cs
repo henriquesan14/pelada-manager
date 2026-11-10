@@ -292,7 +292,6 @@ public static partial class PeladaRules
             }
             case "addManualRental":
             {
-                ApiError.Require(owner, "Apenas o responsável pode cadastrar um aluguel manualmente.", 403);
                 ApiError.Require(state.Rentals.Count < 1000, "Limite de mil aluguéis atingido.");
                 ApiError.Require(ValidName(input.Name), "Informe um nome para o aluguel com até 50 caracteres.");
                 ApiError.Require(input.PlayedOn is not null && input.PlayedOn != DateOnly.MinValue, "Informe o dia da pelada.");

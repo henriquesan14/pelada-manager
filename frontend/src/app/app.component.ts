@@ -277,7 +277,7 @@ export class AppComponent {
     this.showManualRental.set(true);
   }
   async addManualRental(input: ManualRentalInput): Promise<void> {
-    if (this.user()?.role !== 'owner' || this.busy()) return;
+    if (!this.user() || this.busy()) return;
     this.manualRentalError.set('');
     if (await this.perform({type: 'addManualRental', ...input}, 'Aluguel salvo.')) {
       this.showManualRental.set(false);
