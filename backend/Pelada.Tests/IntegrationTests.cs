@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,12 +25,21 @@ public sealed class PostgresFactAttribute : FactAttribute
 
 public sealed class IntegrationTests
 {
+    private sealed class SessionTimeProvider : TimeProvider
+    {
+        public TimeSpan Offset { get; set; }
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UtcNow + Offset;
+    }
+
     [PostgresFact]
     public async Task AccountsSharedResultsConcurrencyAndRevocationWorkWithPostgres()
     {
         var objects = new FakePhotoObjectStore();
+        var sessionClock = new SessionTimeProvider();
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
+            services.PostConfigure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme, options => options.TimeProvider = sessionClock);
+            services.PostConfigure<SecurityStampValidatorOptions>(options => options.TimeProvider = sessionClock);
             services.RemoveAll<IPhotoObjectStore>(); services.AddSingleton<IPhotoObjectStore>(objects);
             services.RemoveAll<PhotoStorageSettings>(); services.AddSingleton(new PhotoStorageSettings(new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string,string?> { ["PhotoStorage:Provider"]="S3" }).Build()));
@@ -84,6 +95,20 @@ public sealed class IntegrationTests
         var login = await Request("login", new { nick = " RICO10 ", password = "123456" });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         ownerCookie = Cookie(login);
+
+        sessionClock.Offset = TimeSpan.FromDays(1);
+        using var renewedSession = await Request("state", cookie: ownerCookie);
+        Assert.Equal(HttpStatusCode.OK, renewedSession.StatusCode);
+        var renewedCookie = Cookie(renewedSession);
+
+        sessionClock.Offset = TimeSpan.FromDays(7.5);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Request("state", cookie: renewedCookie)).StatusCode);
+
+        sessionClock.Offset = TimeSpan.FromDays(8.5);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: renewedCookie)).StatusCode);
+        sessionClock.Offset = TimeSpan.Zero;
+
         // A fresh application/service provider must accept the existing cookie.
         await using(var restarted=new WebApplicationFactory<Program>())
         {
