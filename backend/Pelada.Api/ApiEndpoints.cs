@@ -118,10 +118,11 @@ public static class ApiEndpoints
             ApiError.Require(user.IsOwner, "Apenas o responsável pode convidar organizadores.", 403);
             var value = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
             var expires = DateTimeOffset.UtcNow.AddHours(24);
-            db.Invitations.Add(new Invitation { Hash = Hash(value), CreatedBy = user.Id, Expires = expires });
+            const int maxUses = 10;
+            db.Invitations.Add(new Invitation { Hash = Hash(value), CreatedBy = user.Id, Expires = expires, RemainingUses = maxUses });
             AddActivity(db, user, "Criou um convite de organizador");
             await db.SaveChangesAsync();
-            return Results.Ok(new { Invite = value, Expires = expires });
+            return Results.Ok(new { Invite = value, Expires = expires, MaxUses = maxUses });
         });
         authorized.MapPost("/organizers/reset-password", async (ResetOrganizerPassword input, ClaimsPrincipal principal, UserManager<Organizer> users, PeladaDb db) =>
         {
@@ -183,14 +184,14 @@ public static class ApiEndpoints
         {
             ApiError.Require(input.Invite is { Length: 64 }, "Você precisa de um convite válido.", 403);
             invitation = await db.Invitations.FindAsync(Hash(input.Invite!));
-            ApiError.Require(invitation is { Used: false } && invitation.Expires > DateTimeOffset.UtcNow, "Convite expirado ou já utilizado.", 403);
+            ApiError.Require(invitation is { RemainingUses: > 0 } && invitation.Expires > DateTimeOffset.UtcNow, "Convite expirado ou sem vagas.", 403);
         }
         var nick = Nickname.Normalize(input.Nick!);
         ApiError.Require(await users.FindByNameAsync(nick) is null, "Este nick já está em uso. Escolha outro.", 409);
         var user = new Organizer { UserName = nick, Name = input.Name!.Trim(), IsOwner = first };
         var result = await users.CreateAsync(user, input.Password!);
         ApiError.Require(result.Succeeded, "Não foi possível criar a conta. Verifique o nick e a senha.", 409);
-        if (invitation is not null) invitation.Used = true;
+        if (invitation is not null) invitation.RemainingUses--;
         AddActivity(db, user, first ? "Criou a pelada compartilhada" : "Entrou como organizador");
         await db.SaveChangesAsync();
         await transaction.CommitAsync();

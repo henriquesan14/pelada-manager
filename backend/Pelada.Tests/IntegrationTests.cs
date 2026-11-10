@@ -136,7 +136,14 @@ public sealed class IntegrationTests
         Assert.Equal(HttpStatusCode.OK, otherResponse.StatusCode);
         var otherCookie = Cookie(otherResponse);
         var otherId = (await Json(otherResponse))["user"]!["id"]!.GetValue<string>();
-        Assert.Equal(HttpStatusCode.Forbidden, (await Request("register", new { name = "Terceiro", nick = "terceiro", password = "Synthetic-password-123", invite })).StatusCode);
+        for (var i = 2; i <= 9; i++)
+            Assert.Equal(HttpStatusCode.OK, (await Request("register", new { name = $"Organizador {i}", nick = $"convite{i}", password = "Synthetic-password-123", invite })).StatusCode);
+
+        var lastSlot = await Task.WhenAll(
+            Request("register", new { name = "Décimo", nick = "convite10", password = "Synthetic-password-123", invite }),
+            Request("register", new { name = "Décimo primeiro", nick = "convite11", password = "Synthetic-password-123", invite }));
+        Assert.Single(lastSlot, response => response.StatusCode == HttpStatusCode.OK);
+        Assert.Single(lastSlot, response => response.StatusCode == HttpStatusCode.Forbidden);
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("invites", new { }, otherCookie)).StatusCode);
         var resetInput = new { id = otherId, password = "654321" };
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("organizers/reset-password", resetInput)).StatusCode);
@@ -287,7 +294,7 @@ public sealed class IntegrationTests
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PeladaDb>();
-            await db.Invitations.Where(i => !i.Used).ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Expires, DateTimeOffset.UtcNow.AddDays(-1)));
+            await db.Invitations.Where(i => i.RemainingUses > 0).ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Expires, DateTimeOffset.UtcNow.AddDays(-1)));
         }
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("register", new { name = "Tarde", nick = "atrasado", password = "Synthetic-password-123", invite = expiredInvite })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("organizers/remove", new { id = otherId }, otherCookie)).StatusCode);

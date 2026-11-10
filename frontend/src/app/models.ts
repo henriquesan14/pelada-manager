@@ -18,7 +18,7 @@ export interface Snapshot { revision: number; state: PeladaState; }
 export interface Session { user: User | null; needsSetup: boolean; setupEnabled: boolean; }
 export interface Organizer extends User { active: boolean; }
 export interface Activity { id: number; action: string; date: string; name: string; }
-export interface Invitation { invite: string; expires: string; }
+export interface Invitation { invite: string; expires: string; maxUses?: number; }
 export interface RankingRow extends Player { rentals: number; titles: number; points: number; }
 
 export type Page = 'inicio' | 'jogadores' | 'sorteio' | 'partidas' | 'ranking' | 'organizadores' | 'regras' | 'mensalidades' | 'financeiro';

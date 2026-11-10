@@ -16,7 +16,7 @@ public sealed class Invitation
     public string Hash { get; set; } = "";
     public string CreatedBy { get; set; } = "";
     public DateTimeOffset Expires { get; set; }
-    public bool Used { get; set; }
+    public int RemainingUses { get; set; }
 }
 public sealed class StateDocument
 {

@@ -218,8 +218,8 @@ namespace Pelada.Api.Migrations
                     b.Property<DateTimeOffset>("Expires")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("Used")
-                        .HasColumnType("boolean");
+                    b.Property<int>("RemainingUses")
+                        .HasColumnType("integer");
 
                     b.HasKey("Hash");
 
