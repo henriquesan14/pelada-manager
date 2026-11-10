@@ -8,7 +8,7 @@
     </aside>
   }
   <main>
-    <header><span class="header-brand"><img src="/caps-fc-logo.png" alt="CAPS FC" width="28" height="32"><span>CAPS FC</span></span>@if(user(); as current) {<button class="text-button" [disabled]="busy()" (click)="logout()">Sair</button><span class="avatar" [title]="current.name">{{initials(current.name)}}</span>} @else {<a class="text-button" [routerLink]="paths.inicio">Entrar como organizador</a>}</header>
+    <header><span class="header-brand"><img src="/caps-fc-logo.png" alt="CAPS FC" width="28" height="32"><span>CAPS FC</span></span><button type="button" class="text-button" [disabled]="busy()" (click)="reloadApp()">{{reloading() ? 'Atualizando…' : 'Atualizar'}}</button>@if(user(); as current) {<button class="text-button" [disabled]="busy()" (click)="logout()">Sair</button><span class="avatar" [title]="current.name">{{initials(current.name)}}</span>} @else {<a class="text-button" [routerLink]="paths.inicio">Entrar como organizador</a>}</header>
     @if(loading()) {<div class="empty" role="status">Conectando à pelada…</div>}
     @else if(!session()) {<section class="card empty" role="status"><h2>Reconectando ao servidor…</h2><p>Aguarde um momento. Sua sessão será verificada automaticamente.</p><button type="button" class="text-button" (click)="bootstrap()">Tentar novamente</button></section>}
     @else if(!user() && !isPublicPage()) {

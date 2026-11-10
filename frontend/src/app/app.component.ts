@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { SwUpdate } from '@angular/service-worker';
+import { firstValueFrom, from, timeout } from 'rxjs';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { PAGE_PATHS, pageFromUrl } from './navigation';
 import { ApiService } from './api.service';
@@ -31,6 +32,7 @@ export class AppComponent {
   readonly manualRentalError = signal('');
   private readonly destroy = inject(DestroyRef);
   private readonly updates = inject(SwUpdate);
+  readonly reloading = signal(false);
   private readonly router = inject(Router);
   readonly paths = PAGE_PATHS;
   readonly playerDialog = viewChild<ElementRef<HTMLDialogElement>>('playerDialog');
@@ -153,7 +155,7 @@ export class AppComponent {
     const visibility = () => { if (!document.hidden) void this.refresh(); };
     window.addEventListener('online', online); window.addEventListener('offline', offline);
     document.addEventListener('visibilitychange', visibility);
-    const subscription = this.updates.versionUpdates.subscribe(event => { if (event.type === 'VERSION_READY') this.toast('Nova versão disponível. Reabra o app para atualizar.'); });
+    const subscription = this.updates.versionUpdates.subscribe(event => { if (event.type === 'VERSION_READY') this.toast('Nova versão disponível. Toque em Atualizar.'); });
     this.destroy.onDestroy(() => {
       clearInterval(poll); clearTimeout(this.toastTimer); subscription.unsubscribe();
       this.clearPhoto();
@@ -213,6 +215,21 @@ export class AppComponent {
     try { await this.api.logout(); this.clearSession(); this.go('inicio'); }
     catch (error) { this.toast(this.errorMessage(error)); }
   }
+  async reloadApp(): Promise<void> {
+    if (this.busy() || this.reloading()) return;
+    this.reloading.set(true);
+    this.busy.set(true);
+    try {
+      if (this.updates.isEnabled && navigator.serviceWorker.controller) {
+        await firstValueFrom(from(this.updates.checkForUpdate()).pipe(timeout(8000)));
+      }
+    } catch {
+      // Reload even if the update check fails or times out.
+    } finally {
+      window.location.reload();
+    }
+  }
+
   async refresh(force = false): Promise<void> {
     if(!this.session()&&!this.loading()&&!this.busy()){await this.bootstrap();return;}
     if ((!this.user()&&!this.isPublicPage()) || this.busy()) return;
