@@ -378,10 +378,10 @@ export class AppComponent {
     } catch(error) {this.passwordResetError.set(this.errorMessage(error));}
     finally {this.busy.set(false);}
   }
-  async revoke(id: string): Promise<void> {
-    if (this.busy() || !confirm('Remover o acesso deste organizador e encerrar suas sessões?')) return;
+  async removeOrganizer(id: string): Promise<void> {
+    if (this.busy() || !confirm('Excluir a conta deste organizador? O histórico de ações será preservado.')) return;
     this.busy.set(true);
-    try { await this.api.revoke(id); await this.loadOrganizers(); this.toast('Acesso removido.'); }
+    try { await this.api.removeOrganizer(id); this.organizers.update(items => items.filter(item => item.id !== id)); await this.loadOrganizers(); this.toast('Organizador removido.'); }
     catch (error) { this.toast(this.errorMessage(error)); }
     finally { this.busy.set(false); }
   }

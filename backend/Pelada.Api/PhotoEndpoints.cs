@@ -67,7 +67,7 @@ public static class PhotoEndpoints
             photo.ContentType = contentType; photo.UploadedBy = user!.Id; photo.UploadedAt = DateTimeOffset.UtcNow;
             state.Rentals[index] = state.Rentals[index] with { PhotoId = photo.Id };
             doc.Payload = JsonSerializer.Serialize(state, PeladaRules.Json); doc.Revision++;
-            db.Activities.Add(new Activity { ActorId = user.Id, Action = $"Adicionou a foto de {state.Rentals[index].Name}" });
+            db.Activities.Add(new Activity { ActorId = user.Id, ActorName = user.Name, Action = $"Adicionou a foto de {state.Rentals[index].Name}" });
             try { await db.SaveChangesAsync(cancellation); }
             catch
             {

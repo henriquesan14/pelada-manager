@@ -257,17 +257,23 @@ public sealed class IntegrationTests
             await db.Invitations.Where(i => !i.Used).ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Expires, DateTimeOffset.UtcNow.AddDays(-1)));
         }
         Assert.Equal(HttpStatusCode.Forbidden, (await Request("register", new { name = "Tarde", nick = "atrasado", password = "Synthetic-password-123", invite = expiredInvite })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await Request("revoke", new { id = otherId }, otherCookie)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await Request("revoke", new { id = otherId }, ownerCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Request("organizers/remove", new { id = otherId }, otherCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Request("organizers/remove", new { id = otherId }, ownerCookie)).StatusCode);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PeladaDb>();
+            Assert.False(await db.Users.AnyAsync(u => u.Id == otherId));
+            Assert.True(await db.Activities.AnyAsync(a => a.ActorId == otherId && a.ActorName == "Outro"));
+        }
         Assert.Equal(HttpStatusCode.NotFound, (await Request("organizers/reset-password", resetInput, ownerCookie)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request("state", cookie: otherCookie)).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Request("login", new { nick = "outro", password = "Synthetic-password-123" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Request("login", new { nick = "outro", password = "654321" })).StatusCode);
         // Pagination must retain every action even when new actions arrive between pages.
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PeladaDb>();
             var actor = await db.Users.SingleAsync(u => u.IsOwner);
-            db.Activities.AddRange(Enumerable.Range(1, 35).Select(i => new Activity { ActorId = actor.Id, Action = $"Pagination {i}" }));
+            db.Activities.AddRange(Enumerable.Range(1, 35).Select(i => new Activity { ActorId = actor.Id, ActorName = actor.Name, Action = $"Pagination {i}" }));
             await db.SaveChangesAsync();
         }
         var firstPage = await Json(await Request("organizers", cookie: ownerCookie));

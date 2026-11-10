@@ -17,7 +17,7 @@ namespace Pelada.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -190,12 +190,15 @@ namespace Pelada.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateTimeOffset>("Date")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ActorId");
 
                     b.HasIndex("Date");
 
@@ -339,8 +342,6 @@ namespace Pelada.Api.Migrations
                     b.HasIndex("RentalId")
                         .IsUnique();
 
-                    b.HasIndex("UploadedBy");
-
                     b.ToTable("RentalPhotos");
                 });
 
@@ -424,31 +425,11 @@ namespace Pelada.Api.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Pelada.Api.Activity", b =>
-                {
-                    b.HasOne("Pelada.Api.Organizer", "Actor")
-                        .WithMany()
-                        .HasForeignKey("ActorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Actor");
-                });
-
             modelBuilder.Entity("Pelada.Api.Invitation", b =>
                 {
                     b.HasOne("Pelada.Api.Organizer", null)
                         .WithMany()
                         .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Pelada.Api.RentalPhoto", b =>
-                {
-                    b.HasOne("Pelada.Api.Organizer", null)
-                        .WithMany()
-                        .HasForeignKey("UploadedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -9,7 +9,7 @@ namespace Pelada.Api;
 
 public sealed record Registration(string? Name, string? Nick, string? Password, string? SetupToken, string? Invite);
 public sealed record Login(string? Nick, string? Password);
-public sealed record Revoke(string? Id);
+public sealed record RemoveOrganizer(string? Id);
 public sealed record ResetOrganizerPassword(string? Id, string? Password);
 
 public static class ApiEndpoints
@@ -23,7 +23,7 @@ public static class ApiEndpoints
         return user!;
     }
     private static void AddActivity(PeladaDb db, Organizer user, string action) =>
-        db.Activities.Add(new Activity { ActorId = user.Id, Action = action });
+        db.Activities.Add(new Activity { ActorId = user.Id, ActorName = user.Name, Action = action });
 
     public static void MapPelada(this WebApplication app)
     {
@@ -103,7 +103,7 @@ public static class ApiEndpoints
             var query = db.Activities.AsNoTracking().AsQueryable();
             if (before.HasValue) query = query.Where(a => a.Id < before.Value);
             var activity = await query.OrderByDescending(a => a.Id).Take(31)
-                .Select(a => new { a.Id, a.Action, a.Date, a.Actor.Name }).ToListAsync();
+                .Select(a => new { a.Id, a.Action, a.Date, Name = a.ActorName }).ToListAsync();
             return Results.Ok(new
             {
                 Organizers = await db.Users.OrderBy(u => u.Name).Select(u => new { u.Id, u.Name, Nick = u.UserName,
@@ -141,18 +141,17 @@ public static class ApiEndpoints
             await transaction.CommitAsync();
             return Results.Ok(new { Ok = true });
         });
-        authorized.MapPost("/revoke", async (Revoke input, ClaimsPrincipal principal, UserManager<Organizer> users, PeladaDb db) =>
+        authorized.MapPost("/organizers/remove", async (RemoveOrganizer input, ClaimsPrincipal principal, UserManager<Organizer> users, PeladaDb db) =>
         {
             var owner = await Current(principal, users);
-            ApiError.Require(owner.IsOwner, "Apenas o responsável pode remover acessos.", 403);
-            ApiError.Require(input.Id != owner.Id, "Você não pode remover seu próprio acesso.");
+            ApiError.Require(owner.IsOwner, "Apenas o responsável pode remover organizadores.", 403);
+            ApiError.Require(input.Id != owner.Id, "Você não pode remover sua própria conta.");
             var user = input.Id is null ? null : await users.FindByIdAsync(input.Id);
-            ApiError.Require(user is { IsActive: true, IsOwner: false }, "Organizador não encontrado.", 404);
+            ApiError.Require(user is { IsOwner: false }, "Organizador não encontrado.", 404);
             await using var transaction = await db.Database.BeginTransactionAsync();
-            user!.IsActive = false;
-            var result = await users.UpdateSecurityStampAsync(user);
-            ApiError.Require(result.Succeeded, "Não foi possível remover o acesso.", 409);
-            AddActivity(db, owner, $"Removeu o acesso de {user.Name}");
+            var result = await users.DeleteAsync(user!);
+            ApiError.Require(result.Succeeded, "Não foi possível remover o organizador.", 409);
+            AddActivity(db, owner, $"Removeu o organizador {user!.Name}");
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
             return Results.Ok(new { Ok = true });

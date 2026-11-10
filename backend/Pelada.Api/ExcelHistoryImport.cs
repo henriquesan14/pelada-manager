@@ -67,7 +67,7 @@ public static class ExcelHistoryImport
             Console.WriteLine($"Histórico preparado: {imported}/{package.History.Count-skipped}.");
         }
         doc.Payload=JsonSerializer.Serialize(state,PeladaRules.Json);doc.Revision++;
-        db.Activities.Add(new Activity{ActorId=actor.Id,Action=$"Importou saldo inicial de {package.Players.Count} jogadores e {imported} aluguéis históricos, sem duplicar conquistas"});
+        db.Activities.Add(new Activity{ActorId=actor.Id,ActorName=actor.Name,Action=$"Importou saldo inicial de {package.Players.Count} jogadores e {imported} aluguéis históricos, sem duplicar conquistas"});
         // EF saves metadata, state and audit atomically; its revision token rejects concurrent changes.
         await db.SaveChangesAsync();
         Console.WriteLine($"Importação concluída: {package.Players.Count} saldos, {imported} históricos, {photos} fotos no S3, {skipped} registros já importados.");

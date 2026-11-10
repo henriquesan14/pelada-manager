@@ -26,5 +26,5 @@ export class ApiService {
   invite = () => this.post<Invitation>('invites', {});
   organizers = (before?: number) => this.get<{organizers: Organizer[]; activity: Activity[]; hasMoreActivity: boolean}>(`organizers${before === undefined ? '' : '?before=' + before}`);
   resetOrganizerPassword = (id: string, password: string) => this.post('organizers/reset-password', {id,password});
-  revoke = (id: string) => this.post('revoke', { id });
+  removeOrganizer = (id: string) => this.post('organizers/remove', { id });
 }

@@ -28,7 +28,7 @@ public sealed class Activity
 {
     public long Id { get; set; }
     public string ActorId { get; set; } = "";
-    public Organizer Actor { get; set; } = null!;
+    public string ActorName { get; set; } = "";
     public string Action { get; set; } = "";
     public DateTimeOffset Date { get; set; } = DateTimeOffset.UtcNow;
 }
@@ -61,11 +61,10 @@ public sealed class PeladaDb(DbContextOptions<PeladaDb> options) : IdentityDbCon
         model.Entity<StateDocument>().Property(s => s.Revision).IsConcurrencyToken();
         model.Entity<StateDocument>().Property(s => s.Payload).HasColumnType("jsonb");
         model.Entity<StateDocument>().HasData(new StateDocument());
-        model.Entity<Activity>().HasOne(a => a.Actor).WithMany().HasForeignKey(a => a.ActorId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<Activity>().Property(a => a.ActorName).HasMaxLength(50);
         model.Entity<Activity>().Property(a => a.Action).HasMaxLength(250);
         model.Entity<Activity>().HasIndex(a => a.Date);
         model.Entity<RentalPhoto>().HasIndex(p => p.RentalId).IsUnique();
         model.Entity<RentalPhoto>().Property(p => p.ContentType).HasMaxLength(30);
-        model.Entity<RentalPhoto>().HasOne<Organizer>().WithMany().HasForeignKey(p => p.UploadedBy).OnDelete(DeleteBehavior.Restrict);
     }
 }
