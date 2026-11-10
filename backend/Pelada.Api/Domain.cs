@@ -13,7 +13,7 @@ public sealed class ApiError(int status, string message) : Exception(message)
 }
 
 public sealed record PlayerSuspension(DateTimeOffset StartedAt, DateOnly? Until = null, int? RentalCount = null);
-public sealed record Player(string Id, string Name, decimal Level, string? Position = null, int InitialRentals = 0, PlayerSuspension? Suspension = null, bool IsInactive = false);
+public sealed record Player(string Id, string Name, decimal Level, string? Position = null, int InitialRentals = 0, PlayerSuspension? Suspension = null, bool IsInactive = false, DateTimeOffset? RentalsResetAt = null);
 public sealed record Team(string Id, string Name, List<string> Players, decimal Strength);
 public sealed record DrawOption(string Id, int Number, List<Team> Teams);
 public sealed record MonthlyFeeCharge(string PlayerId, string PlayerName, DateTimeOffset? PaidAt = null,
@@ -235,6 +235,15 @@ public static partial class PeladaRules
                             fees.Charges.Add(new MonthlyFeeCharge(player.Id, player.Name));
                 }
                 return inactive ? $"Desativou {player.Name}" : $"Reativou {player.Name}";
+            }
+            case "resetPlayerRentals":
+            {
+                var index = state.Players.FindIndex(player => player.Id == input.Id);
+                ApiError.Require(index >= 0, "Jogador não encontrado.", 404);
+                var player = state.Players[index];
+                ApiError.Require(player.IsInactive, "Desative o jogador antes de zerar os aluguéis.");
+                state.Players[index] = player with { RentalsResetAt = DateTimeOffset.UtcNow };
+                return $"Zerou os aluguéis de {player.Name}";
             }
             case "generateDrawOptions":
             {

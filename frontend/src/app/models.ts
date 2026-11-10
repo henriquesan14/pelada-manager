@@ -1,7 +1,7 @@
 import { saoPauloToday } from './dates';
 export interface User { id: string; name: string; nick: string; role: 'owner' | 'organizer'; }
 export interface PlayerSuspension {startedAt:string;until?:string|null;rentalCount?:number|null;}
-export interface Player { isInactive?: boolean; suspension?:PlayerSuspension|null; id: string; name: string; level: number; position?: string | null; initialRentals?: number; }
+export interface Player { isInactive?: boolean; rentalsResetAt?: string | null; suspension?:PlayerSuspension|null; id: string; name: string; level: number; position?: string | null; initialRentals?: number; }
 export const PLAYER_POSITIONS = ['Goleiro','Zagueiro','Lateral','Volante','Meia','Ponta','Atacante','Fixo','Ala','Pivô'] as const;
 export function isGoalkeeper(player: Player): boolean { return /\(GL\)$/i.test(player.name.trim()) || player.position === 'Goleiro'; }
 export interface Team { id: string; name: string; players: string[]; strength: number; }
@@ -26,11 +26,13 @@ export const emptyState = (): PeladaState => ({ players: [], teams: [], matches:
 
 export function ranking(players: Player[], rentals: Rental[]): RankingRow[] {
   return players.map(player => {
-    const row: RankingRow = { ...player, rentals: 0, titles: player.initialRentals || 0, points: player.initialRentals || 0 };
+    const resetAt = player.rentalsResetAt ? Date.parse(player.rentalsResetAt) : null;
+    const initialRentals = resetAt === null ? (player.initialRentals ?? 0) : 0;
+    const row: RankingRow = { ...player, rentals: 0, titles: initialRentals, points: initialRentals };
     for (const rental of rentals) {
       if (rental.isHistorical || rental.cancelledAt || !rental.finishedAt || !(rental.teams.some(team => team.players.includes(player.id)) || (rental.winnerTeamId && rental.winningGoalkeeperId === player.id))) continue;
       row.rentals++;
-      if (rental.winnerTeamId && (rental.winningGoalkeeperId === player.id || rental.teams.some(team => team.id === rental.winnerTeamId && team.players.includes(player.id)))) {
+      if ((resetAt === null || Date.parse(rental.createdAt) >= resetAt) && rental.winnerTeamId && (rental.winningGoalkeeperId === player.id || rental.teams.some(team => team.id === rental.winnerTeamId && team.players.includes(player.id)))) {
         row.titles++; row.points += 1;
       }
     }

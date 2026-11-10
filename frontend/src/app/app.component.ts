@@ -266,6 +266,11 @@ export class AppComponent {
     await this.perform({type: active ? 'reactivatePlayer' : 'deactivatePlayer', id},
       active ? 'Jogador reativado.' : 'Jogador desativado.');
   }
+  async resetPlayerRentals(player: Player): Promise<void> {
+    if (!player.isInactive || this.busy()) return;
+    if (confirm(`Zerar os aluguéis de ${player.name} no ranking? O histórico das peladas será preservado.`))
+      await this.perform({type: 'resetPlayerRentals', id: player.id}, 'Aluguéis zerados.');
+  }
   select(id: string, checked: boolean): void {
     this.selected.update(ids => checked && this.activePlayers().some(player => player.id === id && !this.suspended(player))
       ? [...new Set([...ids, id])]

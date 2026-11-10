@@ -35,6 +35,13 @@ describe('ranking geral por títulos de aluguel',()=>{
     expect(ranking([initial],[imported,finished])[0].titles).toBe(21);
     expect(ranking([initial],[imported])[0].rentals).toBe(0);
   });
+  it('zera apenas as conquistas anteriores ao reset do jogador', () => {
+    const ana = {...players[0], initialRentals: 8, rentalsResetAt: '2026-11-01T12:00:00Z'};
+    const before = {...finished, winningGoalkeeperId: 'p2'};
+    const after = {...finished, id: 'r2', createdAt: '2026-11-02T12:00:00Z', finishedAt: '2026-11-02T14:00:00Z'};
+    expect(ranking([ana, players[1]], [before]).map(row => [row.id, row.titles])).toEqual([['p2', 1], ['p1', 0]]);
+    expect(ranking([ana], [before, after])[0].titles).toBe(1);
+  });
   it('conta um aluguel para o goleiro vencedor sem duplicar se já estiver no time',()=>{
     const keeper={id:'g',name:'TARCIO (GL)',level:5};
     const result={...finished,winningGoalkeeperId:'g'};
