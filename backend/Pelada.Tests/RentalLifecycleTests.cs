@@ -98,6 +98,32 @@ public sealed class RentalLifecycleTests
     }
 
     [Fact]
+    public void DeactivationKeepsRegisteredRentalsAndAllowsReactivation()
+    {
+        var state = State();
+        Start(state, false);
+        var registered = Assert.Single(state.Rentals);
+        Act(state, new() { Type = "generateDrawOptions", Players = ["p1", "p2", "p3"], Count = 3 });
+
+        Act(state, new() { Type = "deactivatePlayer", Id = "p1" });
+
+        Assert.True(state.Players.Single(p => p.Id == "p1").IsInactive);
+        Assert.Same(registered, Assert.Single(state.Rentals));
+        Assert.Empty(state.DrawOptions);
+        Assert.Throws<ApiError>(() => Act(state, new() { Type = "generateDrawOptions", Players = ["p1", "p2", "p3"], Count = 3 }));
+        Act(state, new() { Type = "openMonthlyFees", Month = "2099-01" });
+        var fees = Assert.Single(state.MonthlyFees);
+        Assert.DoesNotContain(fees.Charges, charge => charge.PlayerId == "p1");
+
+        Act(state, new() { Type = "reactivatePlayer", Id = "p1" });
+
+        Assert.False(state.Players.Single(p => p.Id == "p1").IsInactive);
+        Assert.Single(fees.Charges, charge => charge.PlayerId == "p1");
+        Act(state, new() { Type = "generateDrawOptions", Players = ["p1", "p2", "p3"], Count = 3 });
+        Assert.Equal(3, state.DrawOptions.Count);
+    }
+
+    [Fact]
     public void SelectedGoalkeepersCanPlayInTheDrawAndWinnerMustExist()
     {
         var state=State();state.Players.Add(new("g1","TARCIO (GL)",5));state.Players.Add(new("g2","Veto (gl) ",4));
@@ -193,11 +219,13 @@ public sealed class RentalLifecycleTests
         Assert.Equal("b",state.Rentals.Single().WinnerTeamId);Assert.Single(state.Matches);
     }
     [Fact]
-    public void RegisteredParticipantsCannotBeDeleted()
+    public void LegacyRemovalDeactivatesWithoutDeletingRegisteredParticipants()
     {
         var state=State();Start(state);
         Assert.Throws<ApiError>(()=>Start(state));
-        Assert.Throws<ApiError>(()=>Act(state,new(){Type="removePlayer",Id="p1"}));
+        Act(state, new() { Type = "removePlayer", Id = "p1" });
+        Assert.True(state.Players.Single(p => p.Id == "p1").IsInactive);
+        Assert.Contains(state.Rentals.Single().Teams, team => team.Players.Contains("p1"));
         Assert.Throws<ApiError>(()=>Act(state,new(){Type="addMatch"}));
     }
     [Fact]

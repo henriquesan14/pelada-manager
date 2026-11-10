@@ -1,7 +1,7 @@
 import { saoPauloToday } from './dates';
 export interface User { id: string; name: string; nick: string; role: 'owner' | 'organizer'; }
 export interface PlayerSuspension {startedAt:string;until?:string|null;rentalCount?:number|null;}
-export interface Player { suspension?:PlayerSuspension|null; id: string; name: string; level: number; position?: string | null; initialRentals?: number; }
+export interface Player { isInactive?: boolean; suspension?:PlayerSuspension|null; id: string; name: string; level: number; position?: string | null; initialRentals?: number; }
 export const PLAYER_POSITIONS = ['Goleiro','Zagueiro','Lateral','Volante','Meia','Ponta','Atacante','Fixo','Ala','Pivô'] as const;
 export function isGoalkeeper(player: Player): boolean { return /\(GL\)$/i.test(player.name.trim()) || player.position === 'Goleiro'; }
 export interface Team { id: string; name: string; players: string[]; strength: number; }

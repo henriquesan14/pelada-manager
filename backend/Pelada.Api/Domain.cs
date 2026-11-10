@@ -13,7 +13,7 @@ public sealed class ApiError(int status, string message) : Exception(message)
 }
 
 public sealed record PlayerSuspension(DateTimeOffset StartedAt, DateOnly? Until = null, int? RentalCount = null);
-public sealed record Player(string Id, string Name, decimal Level, string? Position = null, int InitialRentals = 0, PlayerSuspension? Suspension = null);
+public sealed record Player(string Id, string Name, decimal Level, string? Position = null, int InitialRentals = 0, PlayerSuspension? Suspension = null, bool IsInactive = false);
 public sealed record Team(string Id, string Name, List<string> Players, decimal Strength);
 public sealed record DrawOption(string Id, int Number, List<Team> Teams);
 public sealed record MonthlyFeeCharge(string PlayerId, string PlayerName, DateTimeOffset? PaidAt = null,
@@ -174,10 +174,10 @@ public static partial class PeladaRules
             {
                 ApiError.Require(ValidMonth(input.Month),"Escolha o mês da mensalidade.");
                 ApiError.Require(!state.MonthlyFees.Any(f=>f.Month==input.Month),"As mensalidades deste mês já foram abertas.",409);
-                ApiError.Require(state.Players.Count>0,"Cadastre os jogadores antes de abrir as mensalidades.");
+                ApiError.Require(state.Players.Any(p => !p.IsInactive),"Cadastre os jogadores antes de abrir as mensalidades.");
                 ApiError.Require(state.MonthlyFees.Count<240,"Limite de 240 meses atingido.");
                 state.MonthlyFees.Add(new MonthlyFeeMonth(input.Month!,10m,
-                    state.Players.Select(p=>new MonthlyFeeCharge(p.Id,p.Name)).ToList()));
+                    state.Players.Where(p => !p.IsInactive).Select(p=>new MonthlyFeeCharge(p.Id,p.Name)).ToList()));
                 return $"Abriu mensalidades de {input.Month}: R$ 10,00 por jogador";
             }
             case "setMonthlyFeePayment":
@@ -210,23 +210,38 @@ public static partial class PeladaRules
                 state.Players[index] = state.Players[index] with { Position = input.Position };
                 return $"Alterou a posição de {state.Players[index].Name}";
             }
-            case "removePlayer":
+            case "removePlayer": // Older app versions use this action.
+            case "deactivatePlayer":
+            case "reactivatePlayer":
             {
-                var player = state.Players.Find(p => p.Id == input.Id);
-                ApiError.Require(player is not null, "Jogador não encontrado.", 404);
-                ApiError.Require(!state.Rentals.Any(r => r.FinishedAt is null && r.Teams.Any(t => t.Players.Contains(input.Id!))),
-                    "Este jogador participa do aluguel em andamento. Encerre o aluguel antes de excluí-lo.");
-                state.Players.Remove(player!);
-                state.Teams.Clear();
-                state.DrawOptions.Clear();state.SelectedDrawOptionId = null;
-                return $"Excluiu {player!.Name}";
+                var index = state.Players.FindIndex(player => player.Id == input.Id);
+                ApiError.Require(index >= 0, "Jogador não encontrado.", 404);
+                var inactive = input.Type != "reactivatePlayer";
+                var player = state.Players[index];
+                state.Players[index] = player with { IsInactive = inactive };
+
+                if (inactive && (state.Teams.Any(team => team.Players.Contains(player.Id)) ||
+                    state.DrawOptions.Any(option => option.Teams.Any(team => team.Players.Contains(player.Id)))))
+                {
+                    state.Teams.Clear();
+                    state.DrawOptions.Clear();
+                    state.SelectedDrawOptionId = null;
+                }
+                if (!inactive)
+                {
+                    var month = CurrentMonth();
+                    foreach (var fees in state.MonthlyFees.Where(fees => string.CompareOrdinal(fees.Month, month) >= 0))
+                        if (!fees.Charges.Any(charge => charge.PlayerId == player.Id))
+                            fees.Charges.Add(new MonthlyFeeCharge(player.Id, player.Name));
+                }
+                return inactive ? $"Desativou {player.Name}" : $"Reativou {player.Name}";
             }
             case "generateDrawOptions":
             {
                 ApiError.Require(input.Count is 3 or 4, "Escolha 3 ou 4 times.");
                 ApiError.Require(input.Players is { Count: <= 500 } && input.Players.Distinct().Count() == input.Players.Count,
                     "Seleção de jogadores inválida.");
-                ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id)), "Um jogador não está mais no elenco.");
+                ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id && !p.IsInactive)), "A seleção contém um jogador inativo ou removido.");
                 var players = state.Players.Where(p => input.Players!.Contains(p.Id)).ToList();
                 ApiError.Require(players.All(p=>!IsSuspended(p,state)),"A seleção contém jogador suspenso. Atualize os presentes.");
                 var options = new List<DrawOption>();
@@ -266,7 +281,7 @@ public static partial class PeladaRules
             {
                 ApiError.Require(input.Players is { Count: <= 500 } && input.Players.Distinct().Count() == input.Players.Count,
                     "Seleção de jogadores inválida.");
-                ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id)), "Um jogador não está mais no elenco.");
+                ApiError.Require(input.Players!.All(id => state.Players.Any(p => p.Id == id && !p.IsInactive)), "A seleção contém um jogador inativo ou removido.");
                 ApiError.Require(state.Players.Where(p=>input.Players!.Contains(p.Id)).All(p=>!IsSuspended(p,state)),"A seleção contém jogador suspenso.");
                 state.Teams = Draw(state.Players.Where(p => input.Players!.Contains(p.Id)).ToList(), input.Count);
                 state.DrawOptions = [];state.SelectedDrawOptionId = null;

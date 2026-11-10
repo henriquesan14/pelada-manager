@@ -52,14 +52,16 @@ export class AppComponent {
   readonly snapshot = signal<Snapshot>({ revision: -1, state: emptyState() });
   readonly state = computed(() => this.snapshot().state);
   readonly sortedPlayers = computed(() => [...this.state().players].sort((a, b) => Number(/\(GL\)$/i.test(a.name.trim())) - Number(/\(GL\)$/i.test(b.name.trim())) || b.level - a.level || a.name.localeCompare(b.name, 'pt-BR')));
+  readonly activePlayers = computed(() => this.sortedPlayers().filter(player => !player.isInactive));
+  readonly showInactivePlayers = signal(false);
   readonly playerSearch=signal('');
   readonly filteredPlayers=computed(()=>{
     const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
     const term=normalize(this.playerSearch().trim());
-    return this.sortedPlayers().filter(player=>normalize(player.name).includes(term));
+    return this.sortedPlayers().filter(player => !!player.isInactive === this.showInactivePlayers() && normalize(player.name).includes(term));
   });
   readonly goalkeepers = computed(() => this.sortedPlayers().filter(isGoalkeeper));
-  readonly standings = computed(() => ranking(this.state().players, this.state().rentals));
+  readonly standings = computed(() => ranking(this.activePlayers(), this.state().rentals));
   readonly activeRental = computed(() => this.state().rentals.find(r => !r.finishedAt) || null);
   readonly selectedRentalId = signal('');
   readonly currentRental = computed(() => this.state().rentals.find(r => r.id === this.selectedRentalId()) || this.activeRental() || this.state().rentals.at(-1) || null);
@@ -182,7 +184,7 @@ export class AppComponent {
   private apply(next: Snapshot): void {
     const previousRentalId=this.currentRental()?.id;
     next.state.rentals ??= [];
-    const current = this.selected().filter(id => next.state.players.some(p => p.id === id));
+    const current = this.selected().filter(id => next.state.players.some(p => p.id === id && !p.isInactive));
     this.snapshot.set(next); this.selected.set(current.filter(id=>!this.suspended(next.state.players.find(p=>p.id===id)!))); this.connected.set(true);
     if(previousRentalId!==this.currentRental()?.id){this.clearPhoto();this.winnerSelection='';this.goalkeeperSelection='';}
   }
@@ -259,13 +261,21 @@ export class AppComponent {
   }
   async updateLevel(id: string, value: number): Promise<void> { await this.perform({type:'updateLevel',id,level:Number(value)}, 'Nível atualizado.'); }
   async updatePosition(id: string, position: string): Promise<void> { await this.perform({type:'updatePosition',id,position}, 'Posição atualizada.'); }
-  async removePlayer(id: string): Promise<void> { if (confirm('Excluir este jogador? O histórico dos outros jogadores será mantido.')) await this.perform({type:'removePlayer',id}, 'Jogador excluído.'); }
-  select(id: string, checked: boolean): void { this.selected.update(ids => checked && !this.sortedPlayers().some(p=>p.id===id&&this.suspended(p)) ? [...ids, id] : ids.filter(p => p !== id)); }
+  async setPlayerActive(id: string, active: boolean): Promise<void> {
+    if (!active && !confirm('Desativar este jogador? Você pode reativá-lo na lista de inativos.')) return;
+    await this.perform({type: active ? 'reactivatePlayer' : 'deactivatePlayer', id},
+      active ? 'Jogador reativado.' : 'Jogador desativado.');
+  }
+  select(id: string, checked: boolean): void {
+    this.selected.update(ids => checked && this.activePlayers().some(player => player.id === id && !this.suspended(player))
+      ? [...new Set([...ids, id])]
+      : ids.filter(selectedId => selectedId !== id));
+  }
   async draw(): Promise<void> {
     if(this.busy())return;
     if(![3,4].includes(Number(this.teamCount))){this.toast('Escolha 3 ou 4 times.');return;}
     if(this.state().drawOptions?.length&&!confirm('Gerar três novas opções? As opções atuais e a escolha da enquete serão substituídas.'))return;
-    if(await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.sortedPlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount)}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.'))
+    if(await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.activePlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount)}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.'))
       window.scrollTo({top:0,left:0,behavior:'smooth'});
   }
   async cancelDrawOptions(): Promise<void> {
