@@ -234,7 +234,9 @@ public sealed class IntegrationTests
         Assert.Single(publicState["state"]!["rentals"]!.AsArray());
         Assert.Empty(publicState["state"]!["teams"]!.AsArray());
         Assert.Empty(publicState["state"]!["matches"]!.AsArray());
-        Assert.All(publicState["state"]!["players"]!.AsArray(),p=>Assert.Equal(0,p!["level"]!.GetValue<int>()));
+        var publicPlayer = publicState["state"]!["players"]!.AsArray()
+            .Single(p => p!["id"]!.GetValue<string>() == updatedPlayer["id"]!.GetValue<string>());
+        Assert.Equal(1.5m, publicPlayer!["level"]!.GetValue<decimal>());
         Assert.Equal(HttpStatusCode.OK,(await Request($"rentals/{rentalId}/photo")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,(await Upload(rentalId,8,PhotoFixture.Png,null)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await Request("actions", new { type = "finishRental", revision = 8, rentalId, winnerTeamId=teams[0]!["id"]!.GetValue<string>() }, ownerCookie)).StatusCode);

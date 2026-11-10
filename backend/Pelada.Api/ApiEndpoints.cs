@@ -41,7 +41,7 @@ public static class ApiEndpoints
             var state=JsonSerializer.Deserialize<PeladaState>(doc.Payload,PeladaRules.Json)!;
             // Public financial views omit organizer identities and import metadata; drafts stay private.
             return Results.Ok(new {doc.Revision,State=new {
-                Players=state.Players.Select(p=>new {p.Id,p.Name,Level=0,p.InitialRentals}),
+                Players=state.Players.Select(p=>new {p.Id,p.Name,p.Level,p.InitialRentals}),
                 Rentals=state.Rentals.Where(r=>r.FinishedAt is not null && r.CancelledAt is null).Select(r=>r with {ImportSourceId=null}),
                 MonthlyFees=state.MonthlyFees.Select(m=>new {m.Month,m.Amount,Charges=m.Charges.Select(c=>new {
                     c.PlayerId,c.PlayerName,ImportedPaid=c.PaidAt is not null || c.ImportedPaid})}),
