@@ -66,3 +66,14 @@ nav .mobile-more{display:none}
 @media(max-width:650px){.activity-load-more{display:none}}
 
 .organizer-actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+
+.monthly-table .fee-player {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.monthly-table .fee-exemption {
+  min-height: 44px;
+}

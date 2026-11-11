@@ -7,7 +7,6 @@ export interface FeeExemptionChange {month:string;playerId:string;exempt:boolean
 export interface FeePaymentChange {month:string;playerId:string;playerName:string;paid:boolean;}
 @Component({
   selector:'app-monthly-fees',imports:[FormsModule],
-  styles: ['.fee-player { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; } .fee-exemption { min-height: 44px; }'],
   template:`<div class="page-heading"><div><div class="eyebrow">PAGAMENTOS DOS JOGADORES</div><h1>Mensalidades</h1><p>R$ 10,00 por mês para cada jogador cadastrado. Acompanhe os pagamentos recebidos.</p></div></div>
     <section class="card monthly-selector"><label>Mês de referência<input type="month" [ngModel]="month()" (ngModelChange)="month.set($event)" [disabled]="busy()"></label>
       @if(!readOnly() && !current()) {<button class="primary" [disabled]="busy() || !month()" (click)="openMonth.emit(month())">Abrir mensalidades do mês</button>}
