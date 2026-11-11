@@ -3,17 +3,28 @@ import { Component, computed, effect, ElementRef, input, output, signal, viewChi
 import { FormsModule } from '@angular/forms';
 import { isMonthlyFeePaid, MonthlyFeeMonth, Player } from './models';
 
+export interface FeeExemptionChange {month: string; playerId: string; exempt: boolean;}
+
 @Component({selector:'app-player-fees-dialog',imports:[FormsModule],template:`
   <dialog #dialog class="rental-dialog player-fees-dialog" aria-labelledby="player-fees-title" (cancel)="close.emit()" (close)="close.emit()">
     <div class="rental-dialog-toolbar"><h2 id="player-fees-title">Mensalidades · {{player().name}}</h2><button type="button" class="text-button" (click)="close.emit()" autofocus>Fechar ✕</button></div>
     <div class="card rental-detail-content"><label>Ano<select [ngModel]="year()" (ngModelChange)="year.set($event)">@for(item of years(); track item) {<option [value]="item">{{item}}</option>}</select></label>
       <p>{{paidCount()}} mensalidades pagas · Total pago: <strong>{{money(received())}}</strong></p>
-      <div class="table-scroll"><table class="monthly-table"><thead><tr><th>MÊS</th><th>VALOR</th><th>STATUS</th></tr></thead><tbody>@for(row of rows(); track row.month) {<tr><td>{{row.name}}</td><td>{{row.charge ? money(row.charge.isExempt ? 0 : row.amount) : '—'}}</td><td><span class="badge" [class.fee-paid]="row.paid">{{row.charge ? (row.charge.isExempt ? 'Isento' : row.paid ? 'Pago' : 'Pendente') : (row.opened ? 'Sem cobrança' : 'Não aberta')}}</span></td></tr>}</tbody></table></div>
+      <div class="table-scroll"><table class="monthly-table"><thead><tr><th>MÊS</th><th>VALOR</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>@for(row of rows(); track row.month) {<tr><td>{{row.name}}</td><td>{{row.charge ? money(row.charge.isExempt ? 0 : row.amount) : '—'}}</td><td><span class="badge" [class.fee-paid]="row.paid">{{row.charge ? (row.charge.isExempt ? 'Isento' : row.paid ? 'Pago' : 'Pendente') : (row.opened ? 'Sem cobrança' : 'Não aberta')}}</span></td><td>
+        @if(row.charge && !row.paid) {
+          <button type="button" class="text-button" [disabled]="busy()"
+            (click)="exemption.emit({month: row.month, playerId: player().id, exempt: !row.charge.isExempt})">
+            {{row.charge.isExempt ? 'Retirar isenção' : 'Isentar'}}
+          </button>
+        }
+      </td></tr>}</tbody></table></div>
     </div>
   </dialog>`})
 export class PlayerFeesDialogComponent {
   readonly player=input.required<Player>();
   readonly months=input<MonthlyFeeMonth[]>([]);
+  readonly busy = input(false);
+  readonly exemption = output<FeeExemptionChange>();
   readonly close=output<void>();
   readonly dialog=viewChild<ElementRef<HTMLDialogElement>>('dialog');
   readonly year=signal(saoPauloToday().slice(0,4));
