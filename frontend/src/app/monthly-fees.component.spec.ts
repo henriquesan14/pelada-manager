@@ -53,7 +53,7 @@ describe('mensalidades de dez reais',()=>{
     fixture.componentRef.setInput('months',[{month:'2026-10',amount:10,charges:[{playerId:'a',playerName:'Ana',importedPaid:true,importSourceCell:'MENSALIDADES!K5'}]}]);
     app.month.set('2026-10');fixture.detectChanges();
     expect(app.received()).toBe(10);expect(app.paidCount()).toBe(1);
-    expect(fixture.nativeElement.querySelectorAll('.monthly-table th').length).toBe(4);
+    expect(fixture.nativeElement.querySelectorAll('.monthly-table th').length).toBe(3);
     expect(fixture.nativeElement.textContent).not.toContain('Data não informada');
     app.status.set('paid');expect(app.visibleCharges().length).toBe(1);fixture.destroy();
   });

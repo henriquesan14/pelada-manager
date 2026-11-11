@@ -77,3 +77,18 @@ nav .mobile-more{display:none}
   min-height: 44px;
   white-space: nowrap;
 }
+
+@media (max-width: 650px) {
+  .monthly-table td:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .monthly-table .fee-actions {
+    flex-wrap: wrap;
+  }
+
+  .monthly-table .fee-exemption {
+    white-space: normal;
+  }
+}
