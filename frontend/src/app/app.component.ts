@@ -7,7 +7,7 @@ import { DrawShareDialogComponent } from './draw-share-dialog.component';
 import { PlayerSuspensionDialogComponent, SuspensionChange } from './player-suspension-dialog.component';
 import { PlayerFeesDialogComponent } from './player-fees-dialog.component';
 import { CashFlowComponent, NewExpense, NewIncome } from './cash-flow.component';
-import { FeePaymentChange, MonthlyFeesComponent } from './monthly-fees.component';
+import { FeeExemptionChange, FeePaymentChange, MonthlyFeesComponent } from './monthly-fees.component';
 import { GroupRulesComponent } from './group-rules.component';
 import { PlayerAutocompleteComponent } from './player-autocomplete.component';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
@@ -340,6 +340,10 @@ export class AppComponent {
   }
   async openMonthlyFees(month:string): Promise<void> {
     await this.perform({type:'openMonthlyFees',month},'Mensalidades abertas: R$ 10,00 por jogador.');
+  }
+  async setMonthlyFeeExemption(change: FeeExemptionChange): Promise<void> {
+    await this.perform({type: 'setMonthlyFeeExemption', month: change.month, id: change.playerId, exempt: change.exempt},
+      change.exempt ? 'Mensalidade isenta.' : 'Isenção retirada.');
   }
   async setMonthlyFeePayment(change:FeePaymentChange): Promise<void> {
     if(!change.paid&&!confirm(`Desfazer o pagamento de ${change.playerName} em ${change.month}? A mensalidade voltará a ficar pendente.`))return;

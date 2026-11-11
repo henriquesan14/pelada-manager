@@ -106,7 +106,7 @@
           </div></section>
         }
         @case('ranking') {<div class="page-heading"><div><div class="eyebrow">CAMPEÕES DO ALUGUEL</div><h1>Ranking geral dos jogadores</h1><p>Cada jogador do time vencedor conquista 1 aluguel. O ranking é ordenado pela quantidade de aluguéis conquistados.</p></div></div><section class="card"><app-ranking [rows]="standings()" /></section>}
-        @case('mensalidades') {<app-monthly-fees [players]="activePlayers()" [readOnly]="!user()" [months]="state().monthlyFees || []" [busy]="busy()" (openMonth)="openMonthlyFees($event)" (payment)="setMonthlyFeePayment($event)" />}
+        @case('mensalidades') {<app-monthly-fees [players]="activePlayers()" [readOnly]="!user()" [months]="state().monthlyFees || []" [busy]="busy()" (openMonth)="openMonthlyFees($event)" (payment)="setMonthlyFeePayment($event)" (exemption)="setMonthlyFeeExemption($event)" />}
         @case('financeiro') {<app-cash-flow [incomes]="state().incomes || []" (addIncome)="addIncome($event,cashFlow)" [readOnly]="!user()" #cashFlow [busy]="busy()" (addExpense)="addExpense($event,cashFlow)" [months]="state().monthlyFees || []" [expenses]="state().expenses || []" />}
         @case('regras') {<app-group-rules />}
         @case('organizadores') {

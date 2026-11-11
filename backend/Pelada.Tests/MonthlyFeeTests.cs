@@ -9,6 +9,26 @@ public sealed class MonthlyFeeTests
     private static PeladaState State()=>new(){Players=[new("a","Ana",3),new("b","Beto (GL)",5)]};
     private static void Act(PeladaState state,ActionRequest input)=>PeladaRules.Apply(state,input,"owner","Organizador",true);
     [Fact]
+    public void ExemptionIsLimitedToOneMonthAndCannotReplacePayment()
+    {
+        var state = State();
+        Act(state, new() { Type = "openMonthlyFees", Month = "2026-11" });
+        Act(state, new() { Type = "openMonthlyFees", Month = "2026-12" });
+        var exemption = new ActionRequest { Type = "setMonthlyFeeExemption", Id = "a", Month = "2026-11", Exempt = true };
+        var payment = new ActionRequest { Type = "setMonthlyFeePayment", Id = "a", Month = "2026-11", Paid = true };
+        Act(state, exemption);
+        Assert.True(state.MonthlyFees[0].Charges[0].IsExempt);
+        Assert.False(state.MonthlyFees[1].Charges[0].IsExempt);
+        Assert.Throws<ApiError>(() => Act(state, payment));
+        exemption.Exempt = false;
+        Act(state, exemption);
+        Act(state, payment);
+        exemption.Exempt = true;
+        Assert.Throws<ApiError>(() => Act(state, exemption));
+        Assert.NotNull(state.MonthlyFees[0].Charges[0].PaidAt);
+    }
+
+    [Fact]
     public void ExpenseBackupPreservesDatesAndRejectsInvalidOrDuplicateEntries()
     {
         var source=State();source.Expenses.Add(new("expense-a",new DateOnly(2026,2,10),12.5m,"Material","MENSALIDADES!T14:V14"));

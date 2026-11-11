@@ -44,7 +44,7 @@ public static class ApiEndpoints
                 Players=state.Players.Select(p=>new {p.Id,p.Name,p.Level,p.InitialRentals,p.IsInactive,p.RentalsResetAt}),
                 Rentals=state.Rentals.Where(r=>r.FinishedAt is not null && r.CancelledAt is null).Select(r=>r with {ImportSourceId=null}),
                 MonthlyFees=state.MonthlyFees.Select(m=>new {m.Month,m.Amount,Charges=m.Charges.Select(c=>new {
-                    c.PlayerId,c.PlayerName,ImportedPaid=c.PaidAt is not null || c.ImportedPaid})}),
+                    c.PlayerId,c.PlayerName,c.IsExempt,ImportedPaid=c.PaidAt is not null || c.ImportedPaid})}),
                 Incomes=state.Incomes.Select(e=>new {e.Id,e.Date,e.Amount,e.Description}),
                 Expenses=state.Expenses.Select(e=>new {e.Id,e.Date,e.Amount,e.Description}),
                 Teams=Array.Empty<Team>(),Matches=Array.Empty<Match>()

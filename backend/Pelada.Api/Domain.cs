@@ -18,7 +18,7 @@ public sealed record Team(string Id, string Name, List<string> Players, decimal 
 public sealed record DrawOption(string Id, int Number, List<Team> Teams);
 public sealed record MonthlyFeeCharge(string PlayerId, string PlayerName, DateTimeOffset? PaidAt = null,
     string? RecordedBy = null, string? RecordedByName = null, bool ImportedPaid = false,
-    string? ImportSourceCell = null, DateTimeOffset? ImportedAt = null);
+    string? ImportSourceCell = null, DateTimeOffset? ImportedAt = null, bool IsExempt = false);
 public sealed record CashIncome(string Id, DateOnly Date, decimal Amount, string Description);
 public sealed record CashExpense(string Id, DateOnly Date, decimal Amount, string Description, string? ImportSourceCell = null);
 public sealed record MonthlyFeeMonth(string Month, decimal Amount, List<MonthlyFeeCharge> Charges);
@@ -57,6 +57,7 @@ public sealed class ActionRequest
     public string? Location { get; set; }
     public string? Month { get; set; }
     public bool? Paid { get; set; }
+    public bool? Exempt { get; set; }
     public DateOnly? SuspensionUntil { get; set; }
     public int? SuspensionRentals { get; set; }
     public DateOnly? IncomeDate { get; set; }
@@ -181,14 +182,24 @@ public static partial class PeladaRules
                     state.Players.Where(p => !p.IsInactive).Select(p=>new MonthlyFeeCharge(p.Id,p.Name)).ToList()));
                 return $"Abriu mensalidades de {input.Month}: R$ 10,00 por jogador";
             }
+            case "setMonthlyFeeExemption":
             case "setMonthlyFeePayment":
             {
-                ApiError.Require(ValidMonth(input.Month) && input.Paid.HasValue,"Informe o mês e se o pagamento foi recebido.");
+                var exemption = input.Type == "setMonthlyFeeExemption";
+                ApiError.Require(ValidMonth(input.Month) && (exemption ? input.Exempt.HasValue : input.Paid.HasValue), "Informe o mês e o status da mensalidade.");
                 var fees=state.MonthlyFees.Find(f=>f.Month==input.Month);
                 ApiError.Require(fees is not null,"As mensalidades deste mês ainda não foram abertas.",404);
                 var index=fees!.Charges.FindIndex(c=>c.PlayerId==input.Id);
                 ApiError.Require(index>=0,"Cobrança do jogador não encontrada neste mês.",404);
                 var charge=fees.Charges[index];
+                if (exemption)
+                {
+                    ApiError.Require(charge.PaidAt is null && !charge.ImportedPaid, "Desfaça o pagamento antes de isentar a mensalidade.");
+                    fees.Charges[index] = charge with { IsExempt = input.Exempt!.Value };
+                    return input.Exempt.Value ? $"Isentou {charge.PlayerName} em {fees.Month}" :
+                        $"Retirou a isenção de {charge.PlayerName} em {fees.Month}";
+                }
+                ApiError.Require(!charge.IsExempt, "Retire a isenção antes de registrar o pagamento.");
                 ApiError.Require((charge.PaidAt is not null || charge.ImportedPaid)!=input.Paid!.Value,"O pagamento já está com esse status. Atualize a tela.",409);
                 fees.Charges[index]=input.Paid.Value ? charge with {PaidAt=DateTimeOffset.UtcNow,RecordedBy=actorId,RecordedByName=actorName,ImportedPaid=false}
                     : charge with {PaidAt=null,RecordedBy=null,RecordedByName=null,ImportedPaid=false};
@@ -401,6 +412,7 @@ public static partial class PeladaRules
                 ValidateRentals(data);
                 ApiError.Require(data.MonthlyFees is {Count:<=240} && data.MonthlyFees.All(f=>f is not null && ValidMonth(f.Month) && f.Amount==10m &&
                     f.Charges is {Count:<=5000} && f.Charges.All(c=>c is not null && ValidId(c.PlayerId) && ValidName(c.PlayerName) &&
+                        (!c.IsExempt || (c.PaidAt is null && !c.ImportedPaid)) &&
                         (c.ImportedPaid ? c.PaidAt is null && c.ImportSourceCell is {Length:>0 and <=100} && c.ImportedAt is not null :
                             c.PaidAt is null ? c.RecordedBy is null && c.RecordedByName is null : c.RecordedBy is not null && ValidName(c.RecordedByName))) &&
                     f.Charges.Select(c=>c.PlayerId).Distinct().Count()==f.Charges.Count) &&

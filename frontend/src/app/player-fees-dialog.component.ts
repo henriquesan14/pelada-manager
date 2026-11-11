@@ -8,7 +8,7 @@ import { isMonthlyFeePaid, MonthlyFeeMonth, Player } from './models';
     <div class="rental-dialog-toolbar"><h2 id="player-fees-title">Mensalidades · {{player().name}}</h2><button type="button" class="text-button" (click)="close.emit()" autofocus>Fechar ✕</button></div>
     <div class="card rental-detail-content"><label>Ano<select [ngModel]="year()" (ngModelChange)="year.set($event)">@for(item of years(); track item) {<option [value]="item">{{item}}</option>}</select></label>
       <p>{{paidCount()}} mensalidades pagas · Total pago: <strong>{{money(received())}}</strong></p>
-      <div class="table-scroll"><table class="monthly-table"><thead><tr><th>MÊS</th><th>VALOR</th><th>STATUS</th></tr></thead><tbody>@for(row of rows(); track row.month) {<tr><td>{{row.name}}</td><td>{{row.charge ? money(row.amount) : '—'}}</td><td><span class="badge" [class.fee-paid]="row.paid">{{row.charge ? (row.paid ? 'Pago' : 'Pendente') : (row.opened ? 'Sem cobrança' : 'Não aberta')}}</span></td></tr>}</tbody></table></div>
+      <div class="table-scroll"><table class="monthly-table"><thead><tr><th>MÊS</th><th>VALOR</th><th>STATUS</th></tr></thead><tbody>@for(row of rows(); track row.month) {<tr><td>{{row.name}}</td><td>{{row.charge ? money(row.charge.isExempt ? 0 : row.amount) : '—'}}</td><td><span class="badge" [class.fee-paid]="row.paid">{{row.charge ? (row.charge.isExempt ? 'Isento' : row.paid ? 'Pago' : 'Pendente') : (row.opened ? 'Sem cobrança' : 'Não aberta')}}</span></td></tr>}</tbody></table></div>
     </div>
   </dialog>`})
 export class PlayerFeesDialogComponent {

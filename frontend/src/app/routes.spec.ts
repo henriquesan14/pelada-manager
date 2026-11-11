@@ -90,7 +90,7 @@ describe('rotas da pelada',()=>{
     await harness.navigateByUrl('/mensalidades',AppComponent);await harness.fixture.whenStable();harness.detectChanges();
     expect(harness.routeNativeElement?.querySelector('input[type="password"]')).toBeNull();
     expect(harness.routeNativeElement?.querySelector('app-monthly-fees')).not.toBeNull();
-    expect(harness.routeNativeElement?.querySelector('.monthly-table')?.textContent).toContain('Ana');
+    expect(harness.routeNativeElement?.querySelector('.monthly-table')?.textContent).toContain('ANA');
     expect(harness.routeNativeElement?.querySelector('.monthly-table button')).toBeNull();
     expect(harness.routeNativeElement?.textContent).not.toContain('Abrir mensalidades do mês');
     await harness.navigateByUrl('/financeiro',AppComponent);await harness.fixture.whenStable();harness.detectChanges();
