@@ -106,7 +106,7 @@
           </div></section>
         }
         @case('ranking') {<div class="page-heading"><div><div class="eyebrow">CAMPEÕES DO ALUGUEL</div><h1>Ranking geral dos jogadores</h1><p>Cada jogador do time vencedor conquista 1 aluguel. O ranking é ordenado pela quantidade de aluguéis conquistados.</p></div></div><section class="card"><app-ranking [rows]="standings()" /></section>}
-        @case('mensalidades') {<app-monthly-fees [players]="activePlayers()" [readOnly]="!user()" [months]="state().monthlyFees || []" [busy]="busy()" (openMonth)="openMonthlyFees($event)" (payment)="setMonthlyFeePayment($event)" />}
+        @case('mensalidades') {<app-monthly-fees [players]="activePlayers()" [readOnly]="!user()" [months]="state().monthlyFees || []" [busy]="busy()" (openMonth)="openMonthlyFees($event)" (payment)="setMonthlyFeePayment($event)" (exemption)="setMonthlyFeeExemption($event)" />}
         @case('financeiro') {<app-cash-flow [incomes]="state().incomes || []" (addIncome)="addIncome($event,cashFlow)" [readOnly]="!user()" #cashFlow [busy]="busy()" (addExpense)="addExpense($event,cashFlow)" [months]="state().monthlyFees || []" [expenses]="state().expenses || []" />}
         @case('regras') {<app-group-rules />}
         @case('organizadores') {
@@ -119,7 +119,7 @@
     }
     <footer>Feito para quem leva a resenha a sério. <span>⚽ Bora jogar?</span></footer>
   </main>
-  @if(user() && page()==='jogadores') {@if(feeDialogPlayer(); as player) {<app-player-fees-dialog [player]="player" [months]="state().monthlyFees || []" [busy]="busy()" (exemption)="setMonthlyFeeExemption($event)" (close)="feeDialogPlayerId.set('')" />}}
+  @if(user() && page()==='jogadores') {@if(feeDialogPlayer(); as player) {<app-player-fees-dialog [player]="player" [months]="state().monthlyFees || []" (close)="feeDialogPlayerId.set('')" />}}
   @if(user() && page()==='jogadores') {@if(suspensionPlayer(); as player) {<app-player-suspension-dialog [player]="player" [busy]="busy()" (save)="suspendPlayer($event)" (close)="suspensionPlayerId.set('')" />}}
   @if(user() && page()==='sorteio' && showDrawShare()) {<app-draw-share-dialog [options]="state().drawOptions || []" [players]="state().players" (close)="showDrawShare.set(false)" />}
   @if(user() || isPublicPage()) {<dialog #mobileMenuDialog id="mobile-menu-dialog" class="mobile-menu-dialog" aria-labelledby="mobile-menu-title" (cancel)="showMobileMenu.set(false)" (close)="showMobileMenu.set(false)"><div class="section-heading"><h2 id="mobile-menu-title">Mais opções</h2><button type="button" class="icon-button" aria-label="Fechar menu" (click)="showMobileMenu.set(false)">×</button></div><div class="mobile-menu-links">@for(link of mobileExtraLinks(); track link.page) {<a [routerLink]="paths[link.page]" [class.active]="page()===link.page" [attr.aria-current]="page()===link.page ? 'page' : null" (click)="showMobileMenu.set(false)"><span>{{link.icon}}</span>{{link.label}}</a>}</div></dialog>}
