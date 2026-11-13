@@ -38,7 +38,7 @@
     }
     @else {
       <div class="sync-line" role="status">{{!user() ? 'Consulta pública · somente leitura' : connected() ? '● Pelada compartilhada' : '○ Sem conexão · alterações exigem acesso ao servidor'}}</div>
-      @if(activeRental(); as active) {@if(page() !== 'partidas') {<div class="active-rental"><span>Aluguel em andamento: <strong>{{active.name}}</strong></span><div class="rental-actions"><button class="text-button" (click)="selectRental(active.id); go('partidas')">Ver aluguel →</button><button class="cancel-rental" [disabled]="busy()" (click)="cancelRental(active.id)">Cancelar pelada</button></div></div>}}
+      @if(user() && activeRental(); as active) {<div class="active-rental"><span>Aluguel em andamento: <strong>{{active.name}}</strong></span><div class="rental-actions"><button class="text-button" (click)="selectRental(active.id); page() !== 'partidas' && go('partidas')">Ver aluguel →</button><button class="cancel-rental" [disabled]="busy()" (click)="cancelRental(active.id)">Cancelar pelada</button></div></div>}
       @switch(page()) {
         @case('inicio') {
           <div class="page-heading"><div><div class="eyebrow">PAINEL DA PELADA</div><h1>A resenha começa aqui<span class="green">.</span></h1><p>Menos organização no grupo. Mais bola no pé.</p></div><button class="primary" [disabled]="busy()" (click)="openPlayer()">＋ Novo jogador</button></div>
@@ -64,7 +64,6 @@
         }
         @case('partidas') {
           <div class="page-heading"><div><div class="eyebrow">AS RESENHAS QUE FICARAM NA HISTÓRIA</div><h1>Histórico de aluguéis</h1><p>Relembre cada pelada. Clique em visualizar para conferir a foto, os times e os jogadores.</p></div>@if(user()) {<button type="button" class="primary" [disabled]="busy()" (click)="openManualRental()">Incluir aluguel manualmente</button>}</div>
-          @if(activeRental() && !selectedRentalId()) {<ng-container [ngTemplateOutlet]="rentalDetails" />}
           @if(latestRental(); as latest) {
             <section class="card pinned-rental" aria-label="Último aluguel"><div class="section-heading"><div><span class="badge">Último aluguel</span><h2>{{latest.name}}</h2><p>{{formatRentalDate(latest)}}</p>@if(latest.location) {<p>Local: {{latest.location}}</p>}</div><button class="primary" [disabled]="busy()" (click)="selectRental(latest.id)">Visualizar</button></div>
               @if(latest.photoId) {<img class="rental-photo" [src]="'/api/rentals/' + latest.id + '/photo?v=' + snapshot().revision" [alt]="'Foto de ' + latest.name">} @else {<p>Este aluguel ainda não tem foto.</p>}
