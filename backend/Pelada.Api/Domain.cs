@@ -143,6 +143,45 @@ public static partial class PeladaRules
             team.Players.Add(player.Id);
             teams[index] = team with { Strength = team.Strength + player.Level };
         }
+        // Keep the roster sizes and the extreme-rating pairings while improving the totals.
+        for (var pass = 0; pass < 20; pass++)
+        {
+            var totals = teams.Select(team => team.Strength).ToArray();
+            var best = (Spread: totals.Max() - totals.Min(), Squares: totals.Sum(total => total * total));
+            (int Left, int Right, int LeftPlayer, int RightPlayer, decimal Delta)? swap = null;
+
+            for (var left = 0; left < teams.Count; left++)
+            for (var right = left + 1; right < teams.Count; right++)
+            for (var a = 0; a < teams[left].Players.Count; a++)
+            for (var b = 0; b < teams[right].Players.Count; b++)
+            {
+                var first = teams[left].Players[a];
+                var second = teams[right].Players[b];
+                var delta = levels[second] - levels[first];
+                if (delta == 0 || (balancePositions && positions[first] != positions[second]))
+                    continue;
+                if (pairExtremeRatings && (levels[first] is 5m or 0.5m || levels[second] is 5m or 0.5m))
+                    continue;
+
+                totals[left] += delta;
+                totals[right] -= delta;
+                var score = (totals.Max() - totals.Min(), totals.Sum(total => total * total));
+                totals[left] -= delta;
+                totals[right] += delta;
+                if (score.CompareTo(best) >= 0) continue;
+
+                best = score;
+                swap = (left, right, a, b, delta);
+            }
+
+            if (swap is not { } move) break;
+            var leftTeam = teams[move.Left];
+            var rightTeam = teams[move.Right];
+            (leftTeam.Players[move.LeftPlayer], rightTeam.Players[move.RightPlayer]) =
+                (rightTeam.Players[move.RightPlayer], leftTeam.Players[move.LeftPlayer]);
+            teams[move.Left] = leftTeam with { Strength = leftTeam.Strength + move.Delta };
+            teams[move.Right] = rightTeam with { Strength = rightTeam.Strength - move.Delta };
+        }
         return teams;
     }
 
