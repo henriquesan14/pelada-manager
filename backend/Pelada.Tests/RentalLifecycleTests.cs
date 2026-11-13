@@ -10,6 +10,34 @@ public sealed class RentalLifecycleTests
         Teams=[new("a","A",["p1"],3),new("b","B",["p2"],3),new("c","C",["p3"],3)] };
     private static void Act(PeladaState state,ActionRequest input)=>PeladaRules.Apply(state,input,"u","Organizador",true);
     private static string Start(PeladaState state,bool withPhoto=true){Act(state,new(){Type="startRental",Name="Sábado",PlayedOn=new DateOnly(2026,10,30)});if(withPhoto)state.Rentals[^1]=state.Rentals[^1] with{PhotoId="stored-photo"};return state.Rentals[^1].Id;}
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void DrawOptionsDistributePositionsAndTrackStars(int count)
+    {
+        var state = State();
+        state.Players = Enumerable.Range(0, count * 3)
+            .Select(i => new Player($"p{i}", $"Jogador {i}", 1m + (i % 5) * 0.5m,
+                i < count ? "Zagueiro" : i < count * 2 ? "Meia" : null))
+            .ToList();
+        Act(state, new() { Type = "generateDrawOptions", Count = count, BalancePositions = true,
+            Players = state.Players.Select(player => player.Id).ToList() });
+
+        Assert.Equal(3, state.DrawOptions.Count);
+        foreach (var option in state.DrawOptions)
+        {
+            Assert.Equal(state.Players.Select(p => p.Id).Order(), option.Teams.SelectMany(team => team.Players).Order());
+            foreach (var team in option.Teams)
+            {
+                var roster = state.Players.Where(player => team.Players.Contains(player.Id)).ToList();
+                Assert.Equal(3, roster.Count);
+                Assert.Single(roster, player => player.Position == "Zagueiro");
+                Assert.Single(roster, player => player.Position == "Meia");
+                Assert.Equal(roster.Sum(player => player.Level), team.Strength);
+            }
+        }
+    }
+
     [Fact]
     public void CancellationNeedsNoPhotoAndReleasesTheNextRegistrationWithoutChangingTheDraft()
     {

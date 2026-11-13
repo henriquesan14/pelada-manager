@@ -66,6 +66,7 @@ public sealed class ActionRequest
     public string? Description { get; set; }
     public List<string>? Players { get; set; }
     public int Count { get; set; }
+    public bool BalancePositions { get; set; }
     public string? A { get; set; }
     public string? B { get; set; }
     public int ScoreA { get; set; } = -1;
@@ -101,16 +102,29 @@ public static partial class PeladaRules
     private static string CurrentMonth() => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow,"America/Sao_Paulo")
         .ToString("yyyy-MM",System.Globalization.CultureInfo.InvariantCulture);
 
-    public static List<Team> Draw(IReadOnlyList<Player> players, int count, Random? random = null, bool vary = false)
+    public static List<Team> Draw(IReadOnlyList<Player> players, int count, Random? random = null, bool vary = false, bool balancePositions = false)
     {
         ApiError.Require(count is >= 2 and <= 6 && players.Count >= count,
             "Selecione pelo menos um jogador por time (2 a 6 times).");
         random ??= Random.Shared;
         var teams = Enumerable.Range(1, count).Select(i => new Team(Id(), $"Time {i}", [], 0)).ToList();
-        foreach (var player in players.Select(p => (Player: p, Tie: random.NextDouble()))
-                     .OrderByDescending(p => (double)p.Player.Level + (vary ? p.Tie * 2 : 0)).ThenBy(p => p.Tie).Select(p => p.Player))
+        var ordered = players.Select(p => (Player: p, Tie: random.NextDouble()))
+            .OrderByDescending(p => (double)p.Player.Level + (vary ? p.Tie * 2 : 0))
+            .ThenBy(p => p.Tie).Select(p => p.Player).ToList();
+
+        var positions = players.ToDictionary(player => player.Id, player => player.Position ?? "");
+        if (balancePositions)
+            ordered = ordered.GroupBy(player => positions[player.Id])
+                .OrderBy(group => group.Key.Length == 0)
+                .SelectMany(group => group).ToList();
+
+        foreach (var player in ordered)
         {
+            var position = positions[player.Id];
             var index = Enumerable.Range(0, count).OrderBy(i => teams[i].Players.Count)
+                .ThenBy(i => balancePositions && position.Length > 0
+                    ? teams[i].Players.Count(id => positions[id] == position)
+                    : 0)
                 .ThenBy(i => teams[i].Strength).First();
             var team = teams[index];
             team.Players.Add(player.Id);
@@ -273,7 +287,7 @@ public static partial class PeladaRules
                     List<Team> teams = [];
                     for (var attempt = 0; attempt < 40; attempt++)
                     {
-                        teams = Draw(players, input.Count, vary: true);
+                        teams = Draw(players, input.Count, vary: true, balancePositions: input.BalancePositions);
                         if (signatures.Add(Signature(teams))) break;
                     }
                     options.Add(new DrawOption(Id(), number, teams));

@@ -178,7 +178,7 @@ describe('resultado da pelada sem partidas',()=>{
     const snapshot:Snapshot={revision:2,state:app.state()};
     api.action.mockResolvedValue(snapshot);
     await app.draw();
-    expect(api.action).toHaveBeenCalledWith({type:'generateDrawOptions',players:['p1','p2'],count:3,revision:1});
+    expect(api.action).toHaveBeenCalledWith({type:'generateDrawOptions',players:['p1','p2'],count:3,balancePositions:false,revision:1});
     fixture.destroy();
   });
   it('cadastra os times aprovados com o dia escolhido',async()=>{

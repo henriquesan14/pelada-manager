@@ -35,7 +35,7 @@ describe('rotas da pelada',()=>{
     expect(harness.routeNativeElement?.querySelectorAll('.select-player input:disabled').length).toBe(1);
     expect(harness.routeNativeElement?.textContent).toContain('Suspenso até');
     app.selected.set(['g','p']);await app.draw();
-    expect((api as any).action).toHaveBeenCalledWith({type:'generateDrawOptions',players:['g','p'],count:3,revision:1});
+    expect((api as any).action).toHaveBeenCalledWith({type:'generateDrawOptions',players:['g','p'],count:3,balancePositions:false,revision:1});
   });
   it('carrega o histórico em um acesso direto equivalente a atualizar a página',async()=>{
     await setup();const harness=await RouterTestingHarness.create('/alugueis');
