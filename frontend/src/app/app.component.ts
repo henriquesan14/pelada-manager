@@ -54,14 +54,15 @@ export class AppComponent {
   readonly sortedPlayers = computed(() => [...this.state().players].sort((a, b) => Number(/\(GL\)$/i.test(a.name.trim())) - Number(/\(GL\)$/i.test(b.name.trim())) || b.level - a.level || a.name.localeCompare(b.name, 'pt-BR')));
   readonly activePlayers = computed(() => this.sortedPlayers().filter(player => !player.isInactive));
   readonly showInactivePlayers = signal(false);
-  readonly drawPlayers = computed(() => [...this.activePlayers()].sort((a, b) =>
+  readonly playersByName = computed(() => [...this.state().players].sort((a, b) =>
     Number(/\(GL\)$/i.test(a.name.trim())) - Number(/\(GL\)$/i.test(b.name.trim())) ||
     a.name.localeCompare(b.name, 'pt-BR')));
+  readonly drawPlayers = computed(() => this.playersByName().filter(player => !player.isInactive));
   readonly playerSearch=signal('');
   readonly filteredPlayers=computed(()=>{
     const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
     const term=normalize(this.playerSearch().trim());
-    return this.sortedPlayers().filter(player => !!player.isInactive === this.showInactivePlayers() && normalize(player.name).includes(term));
+    return this.playersByName().filter(player => !!player.isInactive === this.showInactivePlayers() && normalize(player.name).includes(term));
   });
   readonly goalkeepers = computed(() => this.sortedPlayers().filter(isGoalkeeper));
   readonly standings = computed(() => ranking(this.activePlayers(), this.state().rentals));
