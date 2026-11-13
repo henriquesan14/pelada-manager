@@ -117,7 +117,6 @@ export class AppComponent {
   playerPosition = '';
   readonly positions = PLAYER_POSITIONS;
   teamCount = 3;
-  balancePositions = false;
   winnerSelection = '';
   goalkeeperSelection = '';
   readonly formatRentalDate=formatRentalDate;
@@ -285,7 +284,7 @@ export class AppComponent {
     if(this.busy())return;
     if(![3,4].includes(Number(this.teamCount))){this.toast('Escolha 3 ou 4 times.');return;}
     if(this.state().drawOptions?.length&&!confirm('Gerar três novas opções? As opções atuais e a escolha da enquete serão substituídas.'))return;
-    if(await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.activePlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount),balancePositions:this.balancePositions}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.'))
+    if(await this.perform({type:'generateDrawOptions',players:this.selected().filter(id=>this.activePlayers().some(p=>p.id===id&&!this.suspended(p))),count:Number(this.teamCount),balancePositions:false}, 'Três opções salvas. Compartilhe no WhatsApp e escolha a vencedora após a votação.'))
       window.scrollTo({top:0,left:0,behavior:'smooth'});
   }
   async cancelDrawOptions(): Promise<void> {
