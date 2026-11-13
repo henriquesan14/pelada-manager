@@ -54,6 +54,9 @@ export class AppComponent {
   readonly sortedPlayers = computed(() => [...this.state().players].sort((a, b) => Number(/\(GL\)$/i.test(a.name.trim())) - Number(/\(GL\)$/i.test(b.name.trim())) || b.level - a.level || a.name.localeCompare(b.name, 'pt-BR')));
   readonly activePlayers = computed(() => this.sortedPlayers().filter(player => !player.isInactive));
   readonly showInactivePlayers = signal(false);
+  readonly drawPlayers = computed(() => [...this.activePlayers()].sort((a, b) =>
+    Number(/\(GL\)$/i.test(a.name.trim())) - Number(/\(GL\)$/i.test(b.name.trim())) ||
+    a.name.localeCompare(b.name, 'pt-BR')));
   readonly playerSearch=signal('');
   readonly filteredPlayers=computed(()=>{
     const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
