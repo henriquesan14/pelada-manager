@@ -11,6 +11,25 @@ public sealed class RentalLifecycleTests
     private static void Act(PeladaState state,ActionRequest input)=>PeladaRules.Apply(state,input,"u","Organizador",true);
     private static string Start(PeladaState state,bool withPhoto=true){Act(state,new(){Type="startRental",Name="Sábado",PlayedOn=new DateOnly(2026,10,30)});if(withPhoto)state.Rentals[^1]=state.Rentals[^1] with{PhotoId="stored-photo"};return state.Rentals[^1].Id;}
     [Theory]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(2, 4)]
+    public void DrawPrioritizesHalfStarsInTeamsWithFiveStars(int fiveStars, int halfStars)
+    {
+        var players = Enumerable.Range(0, 12).Select(i =>
+            new Player($"p{i}", $"Jogador {i}", i < fiveStars ? 5m : i < fiveStars + halfStars ? 0.5m : 3m)).ToList();
+
+        var teams = PeladaRules.Draw(players, 3, new Random(7), vary: true);
+
+        Assert.All(teams, team => Assert.Equal(4, team.Players.Count));
+        Assert.Equal(12, teams.SelectMany(team => team.Players).Distinct().Count());
+        var fiveStarTeams = teams.Where(team => players.Take(fiveStars).Any(player => team.Players.Contains(player.Id))).ToList();
+        Assert.Equal(fiveStars, fiveStarTeams.Count);
+        Assert.All(fiveStarTeams, team => Assert.Equal(halfStars / fiveStars,
+            players.Skip(fiveStars).Take(halfStars).Count(player => team.Players.Contains(player.Id))));
+    }
+
+    [Theory]
     [InlineData(3)]
     [InlineData(4)]
     public void DrawOptionsDistributePositionsAndTrackStars(int count)

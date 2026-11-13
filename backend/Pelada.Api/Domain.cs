@@ -118,10 +118,23 @@ public static partial class PeladaRules
                 .OrderBy(group => group.Key.Length == 0)
                 .SelectMany(group => group).ToList();
 
+        var pairExtremeRatings = players.Any(player => player.Level == 5m) &&
+            players.Any(player => player.Level == 0.5m);
+        var levels = players.ToDictionary(player => player.Id, player => player.Level);
+        if (pairExtremeRatings)
+            ordered = ordered.OrderBy(player => player.Level == 5m ? 0 : player.Level == 0.5m ? 1 : 2).ToList();
+
         foreach (var player in ordered)
         {
             var position = positions[player.Id];
-            var index = Enumerable.Range(0, count).OrderBy(i => teams[i].Players.Count)
+            var index = Enumerable.Range(0, count)
+                .Where(i => !pairExtremeRatings || teams[i].Players.Count < players.Count / count + (i < players.Count % count ? 1 : 0))
+                .OrderBy(i => pairExtremeRatings && player.Level == 0.5m &&
+                    !teams[i].Players.Any(id => levels[id] == 5m))
+                .ThenBy(i => pairExtremeRatings && player.Level == 0.5m
+                    ? teams[i].Players.Count(id => levels[id] == 0.5m)
+                    : 0)
+                .ThenBy(i => teams[i].Players.Count)
                 .ThenBy(i => balancePositions && position.Length > 0
                     ? teams[i].Players.Count(id => positions[id] == position)
                     : 0)
