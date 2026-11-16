@@ -129,11 +129,11 @@ public static partial class PeladaRules
             var position = positions[player.Id];
             var index = Enumerable.Range(0, count)
                 .Where(i => !pairExtremeRatings || teams[i].Players.Count < players.Count / count + (i < players.Count % count ? 1 : 0))
-                .OrderBy(i => pairExtremeRatings && player.Level == 0.5m &&
-                    !teams[i].Players.Any(id => levels[id] == 5m))
-                .ThenBy(i => pairExtremeRatings && player.Level == 0.5m
+                .OrderBy(i => player.Level == 0.5m
                     ? teams[i].Players.Count(id => levels[id] == 0.5m)
                     : 0)
+                .ThenBy(i => pairExtremeRatings && player.Level == 0.5m &&
+                    !teams[i].Players.Any(id => levels[id] == 5m))
                 .ThenBy(i => teams[i].Players.Count)
                 .ThenBy(i => balancePositions && position.Length > 0
                     ? teams[i].Players.Count(id => positions[id] == position)
@@ -160,7 +160,8 @@ public static partial class PeladaRules
                 var delta = levels[second] - levels[first];
                 if (delta == 0 || (balancePositions && positions[first] != positions[second]))
                     continue;
-                if (pairExtremeRatings && (levels[first] is 5m or 0.5m || levels[second] is 5m or 0.5m))
+                if ((pairExtremeRatings && (levels[first] == 5m || levels[second] == 5m)) ||
+                    levels[first] == 0.5m || levels[second] == 0.5m)
                     continue;
 
                 totals[left] += delta;

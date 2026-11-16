@@ -12,6 +12,7 @@ public sealed class RentalLifecycleTests
     private static string Start(PeladaState state,bool withPhoto=true){Act(state,new(){Type="startRental",Name="Sábado",PlayedOn=new DateOnly(2026,10,30)});if(withPhoto)state.Rentals[^1]=state.Rentals[^1] with{PhotoId="stored-photo"};return state.Rentals[^1].Id;}
     [Theory]
     [InlineData(1, 1)]
+    [InlineData(1, 3)]
     [InlineData(2, 2)]
     [InlineData(2, 4)]
     public void DrawPrioritizesHalfStarsInTeamsWithFiveStars(int fiveStars, int halfStars)
@@ -25,8 +26,12 @@ public sealed class RentalLifecycleTests
         Assert.Equal(12, teams.SelectMany(team => team.Players).Distinct().Count());
         var fiveStarTeams = teams.Where(team => players.Take(fiveStars).Any(player => team.Players.Contains(player.Id))).ToList();
         Assert.Equal(fiveStars, fiveStarTeams.Count);
-        Assert.All(fiveStarTeams, team => Assert.Equal(halfStars / fiveStars,
-            players.Skip(fiveStars).Take(halfStars).Count(player => team.Players.Contains(player.Id))));
+        int HalfStarCount(Team team) =>
+            players.Skip(fiveStars).Take(halfStars).Count(player => team.Players.Contains(player.Id));
+
+        Assert.All(fiveStarTeams, team => Assert.True(HalfStarCount(team) >= 1));
+        var distribution = teams.Select(HalfStarCount).ToArray();
+        Assert.InRange(distribution.Max() - distribution.Min(), 0, 1);
     }
 
     [Theory]
