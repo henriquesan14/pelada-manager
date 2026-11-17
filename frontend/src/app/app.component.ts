@@ -65,7 +65,6 @@ export class AppComponent {
     return this.playersByName().filter(player => !!player.isInactive === this.showInactivePlayers() && normalize(player.name).includes(term));
   });
   readonly goalkeepers = computed(() => this.sortedPlayers().filter(isGoalkeeper));
-  readonly showRankingStats = signal(false);
   readonly standings = computed(() => ranking(this.activePlayers(), this.state().rentals));
   readonly activeRental = computed(() => this.state().rentals.find(r => !r.finishedAt) || null);
   readonly selectedRentalId = signal('');
