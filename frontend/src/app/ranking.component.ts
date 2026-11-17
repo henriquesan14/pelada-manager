@@ -1,4 +1,4 @@
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { RankingRow, Rental } from './models';
 
 function normalizeName(name: string): string {
@@ -17,11 +17,6 @@ const historicalAliases: Record<string, string[]> = {
   selector: 'app-ranking',
   styles: ['.ranking-rating { display: inline-block; margin-inline-start: .5rem; color: #805800; font-size: .85em; white-space: nowrap; }'],
   template: `
-  @if (rentals()) {
-    <button type="button" class="text-button" [attr.aria-expanded]="showStats()" (click)="showStats.set(!showStats())">
-      {{showStats() ? 'Ocultar estatísticas' : 'Visualizar estatísticas'}}
-    </button>
-  }
   @if (showStats()) {
     <p>Presenças incluem as listas antigas. Vitórias e aproveitamento consideram peladas encerradas com times registrados. O aproveitamento divide essas vitórias pelas presenças nessas peladas.</p>
     <div class="table-scroll">
@@ -40,7 +35,7 @@ const historicalAliases: Record<string, string[]> = {
 export class RankingComponent {
   readonly rows = input.required<RankingRow[]>();
   readonly rentals = input<Rental[]>();
-  readonly showStats = signal(false);
+  readonly showStats = input(false);
   readonly percent = new Intl.NumberFormat('pt-BR', {style: 'percent', maximumFractionDigits: 1});
   readonly stats = computed(() => {
     const finished = (this.rentals() ?? []).filter(rental => rental.finishedAt && !rental.cancelledAt);
