@@ -35,6 +35,8 @@ const historicalNames: Readonly<Record<string, string>> = {
   matheus: 'matheus vet',
   nadinho: 'ednaldo',
   net: 'neto',
+  pedro: 'pedro lukaku',
+  'pedro henrique': 'pedro lukaku',
   tarcinho: 'tarcio',
   tarcin: 'tarcio',
   'tarcio gl': 'tarcio',
