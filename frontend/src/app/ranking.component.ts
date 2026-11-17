@@ -1,4 +1,4 @@
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, computed, effect, ElementRef, input, signal, viewChild } from '@angular/core';
 import { RankingRow, Rental } from './models';
 
 function normalizeName(name: string): string {
@@ -19,12 +19,18 @@ const historicalAliases: Record<string, string[]> = {
   template: `
   @if(rows().length) { <div class="table-scroll"><table><thead><tr><th>POS.</th><th>JOGADOR</th><th>ALUGUÉIS CONQUISTADOS</th>@if (rentals()) {<th>AÇÃO</th>}</tr></thead><tbody>@for(row of rows(); track row.id; let i = $index) {<tr><td><span class="position" [attr.aria-label]="i < 3 ? (i + 1) + 'º lugar' : null">{{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}}</span></td><td><span class="player-avatar">{{row.name.slice(0, 1)}}</span><strong>{{row.name}}</strong>@if(row.level > 0) {<span class="ranking-rating" role="img" [attr.aria-label]="formatLevel(row.level) + ' de 5 estrelas'">{{formatLevel(row.level)}} ★</span>}</td><td><b class="points">{{row.titles}}</b></td>
     @if (rentals()) {
-      <td><button type="button" class="text-button" [attr.aria-expanded]="selectedPlayerId() === row.id"
-        [attr.aria-label]="'Estatísticas de ' + row.name" (click)="toggleStats(row.id)">Estatísticas</button></td>
+      <td><button type="button" class="text-button" aria-haspopup="dialog"
+        [attr.aria-label]="'Estatísticas de ' + row.name" (click)="selectedPlayerId.set(row.id)">Estatísticas</button></td>
     }
     </tr>
-    @if (selectedPlayerId() === row.id && stats(); as details) {
-      <tr><td class="ranking-stat-details" colspan="4">
+}</tbody></table></div> } @else {<div class="empty"><div>⚽</div><h3>O topo está esperando por você</h3><p>Cada jogador do time vencedor conquista 1 aluguel. Sem vencedor, ninguém conquista aluguel.</p></div>}
+    @if (stats(); as details) {
+      <dialog #statsDialog class="registration-dialog" aria-labelledby="ranking-stats-title"
+        (close)="selectedPlayerId.set(null)">
+        <div class="section-heading">
+          <h2 id="ranking-stats-title">Estatísticas de {{details.name}}</h2>
+          <button type="button" class="text-button" (click)="statsDialog.close()" autofocus>Fechar</button>
+        </div>
         <dl>
           <dt>Presenças</dt><dd>{{details.presences}}</dd>
           <dt>Vitórias</dt><dd>{{details.wins}}</dd>
@@ -34,17 +40,30 @@ const historicalAliases: Record<string, string[]> = {
         @if (details.wins > details.presences) {
           <p>O ranking tem mais vitórias do que presenças nas listas disponíveis.</p>
         }
-      </td></tr>
-    }}</tbody></table></div> } @else {<div class="empty"><div>⚽</div><h3>O topo está esperando por você</h3><p>Cada jogador do time vencedor conquista 1 aluguel. Sem vencedor, ninguém conquista aluguel.</p></div>}`
+      </dialog>
+    }`
 })
 export class RankingComponent {
   readonly rows = input.required<RankingRow[]>();
   readonly rentals = input<Rental[]>();
   readonly selectedPlayerId = signal<string | null>(null);
 
-  toggleStats(id: string): void {
-    this.selectedPlayerId.update(selected => selected === id ? null : id);
+  private readonly statsDialog = viewChild<ElementRef<HTMLDialogElement>>('statsDialog');
+
+  constructor() {
+    effect(onCleanup => {
+      const dialog = this.statsDialog()?.nativeElement;
+      if (!dialog) return;
+      const previousOverflow = document.body.style.overflow;
+      dialog.showModal();
+      document.body.style.overflow = 'hidden';
+      onCleanup(() => {
+        if (dialog.open) dialog.close();
+        document.body.style.overflow = previousOverflow;
+      });
+    });
   }
+
   readonly percent = new Intl.NumberFormat('pt-BR', {style: 'percent', maximumFractionDigits: 1});
   readonly stats = computed(() => {
     const player = this.rows().find(row => row.id === this.selectedPlayerId());
@@ -59,7 +78,7 @@ export class RankingComponent {
     const oldPresences = historical.filter(names => aliases.some(alias => names.has(alias))).length;
     const appearances = recorded.filter(rental => rental.winningGoalkeeperId === player.id ||
       rental.teams.some(team => team.players.includes(player.id)));
-    return {presences: oldPresences + appearances.length, wins: player.titles};
+    return {name: player.name, presences: oldPresences + appearances.length, wins: player.titles};
   });
   private readonly stars = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
