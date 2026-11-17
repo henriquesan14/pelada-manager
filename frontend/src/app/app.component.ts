@@ -1,3 +1,4 @@
+import { playerStatistics } from './player-statistics';
 import { ManualRentalDialogComponent, ManualRentalInput } from './manual-rental-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { MobileInfiniteScrollDirective } from './mobile-infinite-scroll.directive';
@@ -66,6 +67,10 @@ export class AppComponent {
   });
   readonly goalkeepers = computed(() => this.sortedPlayers().filter(isGoalkeeper));
   readonly standings = computed(() => ranking(this.activePlayers(), this.state().rentals));
+  readonly bestPlayer = computed(() => playerStatistics(this.standings(), this.state().rentals)
+    .filter(player => player.presences > 0 && player.wins > 0)
+    .sort((a, b) => b.wins / b.presences - a.wins / a.presences || b.presences - a.presences)[0]);
+  readonly percentage = new Intl.NumberFormat('pt-BR', {style: 'percent', maximumFractionDigits: 1});
   readonly activeRental = computed(() => this.state().rentals.find(r => !r.finishedAt) || null);
   readonly selectedRentalId = signal('');
   readonly currentRental = computed(() => this.state().rentals.find(r => r.id === this.selectedRentalId()) || this.activeRental() || this.state().rentals.at(-1) || null);
