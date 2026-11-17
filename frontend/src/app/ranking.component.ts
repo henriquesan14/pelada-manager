@@ -28,9 +28,12 @@ const historicalAliases: Record<string, string[]> = {
         <dl>
           <dt>Presenças</dt><dd>{{details.presences}}</dd>
           <dt>Vitórias</dt><dd>{{details.wins}}</dd>
-          <dt>Aproveitamento</dt><dd>{{details.played ? percent.format(details.wins / details.played) + ' (' + details.wins + '/' + details.played + ')' : '—'}}</dd>
+          <dt>Aproveitamento</dt><dd>{{details.presences ? percent.format(details.wins / details.presences) + ' (' + details.wins + '/' + details.presences + ')' : '—'}}</dd>
         </dl>
-        <p>Presenças incluem as listas antigas. Vitórias e aproveitamento usam as peladas encerradas com times registrados.</p>
+        <p>Presenças incluem as listas antigas. O aproveitamento divide o total de aluguéis conquistados pelas presenças encontradas.</p>
+        @if (details.wins > details.presences) {
+          <p>O ranking tem mais vitórias do que presenças nas listas disponíveis.</p>
+        }
       </td></tr>
     }}</tbody></table></div> } @else {<div class="empty"><div>⚽</div><h3>O topo está esperando por você</h3><p>Cada jogador do time vencedor conquista 1 aluguel. Sem vencedor, ninguém conquista aluguel.</p></div>}`
 })
@@ -56,10 +59,7 @@ export class RankingComponent {
     const oldPresences = historical.filter(names => aliases.some(alias => names.has(alias))).length;
     const appearances = recorded.filter(rental => rental.winningGoalkeeperId === player.id ||
       rental.teams.some(team => team.players.includes(player.id)));
-    const wins = appearances.filter(rental => rental.winnerTeamId &&
-      (rental.winningGoalkeeperId === player.id ||
-        rental.teams.some(team => team.id === rental.winnerTeamId && team.players.includes(player.id)))).length;
-    return {id: player.id, name: player.name, presences: oldPresences + appearances.length, played: appearances.length, wins};
+    return {presences: oldPresences + appearances.length, wins: player.titles};
   });
   private readonly stars = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
