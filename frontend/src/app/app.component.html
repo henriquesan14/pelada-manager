@@ -69,9 +69,6 @@
               @if(latest.photoId) {<img class="rental-photo" [src]="'/api/rentals/' + latest.id + '/photo?v=' + snapshot().revision" [alt]="'Foto de ' + latest.name">} @else {<p>Este aluguel ainda não tem foto.</p>}
             </section>
           }
-          @if(user() && !activeRental()) {
-            <section class="card rental-start"><h2>Nova pelada</h2><p>Sorteie os times e, quando estiverem OK, cadastre a pelada com o dia escolhido.</p><button class="primary" (click)="go('sorteio')">Sortear e cadastrar pelada →</button></section>
-          }
           <ng-template #rentalDetails>
           @if(currentRental(); as rental) {
             <section class="card history-card rental-detail-content">
