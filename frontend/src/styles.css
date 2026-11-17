@@ -92,3 +92,29 @@ nav .mobile-more{display:none}
     white-space: normal;
   }
 }
+
+.ranking-table td:nth-child(2) {
+  display: table-cell;
+  white-space: normal;
+}
+
+.ranking-player {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ranking-player strong {
+  overflow-wrap: anywhere;
+}
+
+.ranking-table .ranking-rentals,
+.ranking-table th:last-child,
+.ranking-table td:last-child {
+  width: 1%;
+}
+
+.ranking-table .ranking-rentals {
+  text-align: center;
+}
