@@ -50,6 +50,10 @@ function historicalName(value: string): string {
   return Object.hasOwn(historicalNames, name) ? historicalNames[name] : name;
 }
 
+const additionalPresences = new Map([
+  ['d2a2c36b-ba6b-439f-aee6-9de3c618b872', 1] // Isaac
+]);
+
 export function playerStatistics(players: RankingRow[], rentals: Rental[]) {
     const finished = rentals.filter(rental => rental.finishedAt && !rental.cancelledAt);
     const historical = finished.filter(rental => rental.isHistorical).map(rental =>
@@ -61,6 +65,6 @@ export function playerStatistics(players: RankingRow[], rentals: Rental[]) {
     const oldPresences = historical.filter(names => names.has(name)).length;
     const appearances = recorded.filter(rental => rental.winningGoalkeeperId === player.id ||
       rental.teams.some(team => team.players.includes(player.id)));
-    return {name: player.name, presences: oldPresences + appearances.length, wins: player.titles};
+    return {name: player.name, presences: oldPresences + appearances.length + (additionalPresences.get(player.id) ?? 0), wins: player.titles};
     });
 }
