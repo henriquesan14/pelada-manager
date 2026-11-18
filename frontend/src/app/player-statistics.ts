@@ -52,7 +52,8 @@ function historicalName(value: string): string {
 }
 
 const additionalPresences = new Map([
-  ['d2a2c36b-ba6b-439f-aee6-9de3c618b872', 1] // Isaac
+  ['d2a2c36b-ba6b-439f-aee6-9de3c618b872', 1], // Isaac
+  ['73478299-84a4-4f3e-bee6-b6cad5c5b6bb', 1] // Thiago Felix
 ]);
 
 export function playerStatistics(players: RankingRow[], rentals: Rental[]) {
