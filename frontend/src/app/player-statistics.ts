@@ -40,6 +40,7 @@ const historicalNames: Readonly<Record<string, string>> = {
   tarcinho: 'tarcio',
   tarcin: 'tarcio',
   'tarcio gl': 'tarcio',
+  thiago: 'thiago felix',
   vetto: 'veto',
   viga: 'everton viga',
   wm: 'waguinho'
